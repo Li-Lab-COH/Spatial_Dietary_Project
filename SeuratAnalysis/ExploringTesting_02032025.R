@@ -130,7 +130,9 @@ SpatialFeaturePlot(BottomLeftData, features = "Myc",
 DefaultAssay(BottomLeftData) <- "Spatial.008um"
 BottomLeftData <- NormalizeData(BottomLeftData)
 
-BottomLeftData <- ScaleData(BottomLeftData, verbose = TRUE)
+BottomLeftData <- ScaleData(BottomLeftData,
+                            features = VariableFeatures(BottomLeftData),
+                            verbose = TRUE)
 
 FindSpatiallyVariableFeatures(
   object = BottomLeftData,  # Your Seurat object
