@@ -52,18 +52,16 @@ count.plot <- SpatialFeaturePlot(ms_31RT, features = "nCount_Spatial.008um") +
 
 vln.plot | count.plot
 
-# SpatialFeaturePlot(ms_31RT, features = "nCount_Spatial.008um",
-#                    min.cutoff = "q10",  
-#                    max.cutoff = "q90",
-#                    image.alpha = 0.2,
-#                    pt.size.factor = 5,
-#                    crop = TRUE)
+SpatialFeaturePlot(ms_31RT, features = "nCount_Spatial.008um",
+                   min.cutoff = "q10",
+                   max.cutoff = "q90",
+                   image.alpha = 0.2,
+                   pt.size.factor = 5,
+                   crop = TRUE)
 
 
 
-#------------------------Subsetting data--------------------------------
 
-ms_31RT <- NormalizeData(ms_31RT)
 ms_31RT <- ScaleData(ms_31RT,
                      features = VariableFeatures(ms_31RT),
                      verbose = TRUE)
@@ -72,7 +70,30 @@ ms_31RT <- ScaleData(ms_31RT,
 
 
 
+#------------------------Processing--------------------------------
 
+DefaultAssay(ms_31RT) <- "Spatial.008um"
+
+# perform clustering workflow
+ms_31RT <- FindVariableFeatures(ms_31RT)
+ms_31RT <- NormalizeData(ms_31RT)
+ms_31RT <- ScaleData(ms_31RT)
+ms_31RT <- RunPCA(ms_31RT)
+ElbowPlot(ms_31RT)
+ms_31RT <- FindNeighbors(ms_31RT, dims = 1:15)
+ms_31RT <- FindClusters(ms_31RT, resolution = 1)
+ms_31RT <- RunUMAP(ms_31RT, reduction = "pca", reduction.name = "umap", 
+                   return.model = T, dims = 1:15)
+ms_31RT <- RunTSNE(ms_31RT, reduction = "pca", reduction.name = "tsne", 
+                   return.model = T, dims = 1:15)
+
+
+DimPlot(ms_31RT, reduction = "umap", label = F) + 
+  ggtitle("Projected clustering (full dataset)") + theme(legend.position = "bottom")
+
+SpatialDimPlot(ms_31RT, label = T, repel = T, label.size = 4,
+               image.alpha = 0.2,
+               pt.size.factor = 5)
 
 FindSpatiallyVariableFeatures(
   tma1 = ms_31RT,  # Your Seurat tma1
