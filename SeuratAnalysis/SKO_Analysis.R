@@ -10,7 +10,35 @@ library(Banksy)
 library(rstudioapi)
 setwd(dirname(getActiveDocumentContext()$path))
 
-BiocManager::install("Banksy")
+####################################################################
+# This script performs the initial cluster analysis using BANKSy's algorithm.
+# I plan to make this algorithm automatic for different BANKSY parameters
+# and the option to do the entire analysis on ALL the tissue sections or your
+# choice of tissue section
+
+# Input requirements:
+# CSV section label locations - The will loop through the files in this folder
+#     using the name of the csv files as the method to backtrack to original sample
+#     so the file name should be the same as the label used for the tissue micro array
+#     This file should contain two columns:
+#         1. cell barcode
+#         2. section label (This should reflect the label of the orinal sample)
+# 
+# BANKSY SPECIFIC PARAMETERS
+#     These values will be used for the name of the folder where all of the outputs
+#     will be saved. I need to figure out how to pass this information over
+#     to the EnrichmentAnalysis
+#     
+#     lambda = 
+#     k_geom
+# 
+#  lambda = 0.2, verbose = TRUE,
+assay = "Spatial.008um", slot = "data", features = "variable",
+k_geom = 30 
+# 
+# 
+
+
 
 #----------------------------Loading Data--------------------------------------
 # Preparing Data
@@ -235,7 +263,17 @@ summary(markers$p_val)
 
 # TODO: Need to customize the file output here
 write.csv(markers, "../../data/ClusterGenes/ms_31RT_top15.csv", row.names = FALSE)
+# TODO: Same for the report below
 
+report <- markers %>%
+  group_by(cluster) %>%
+  summarise(
+    num_genes = n(), # Count the number of rows (genes) per cluster
+    median_avg_log2FC = median(avg_log2FC, na.rm = TRUE), 
+    min_avg_log2FC = min(avg_log2FC, na.rm = TRUE), 
+    max_avg_log2FC = max(avg_log2FC, na.rm = TRUE)
+  )
+report
 
 
 
