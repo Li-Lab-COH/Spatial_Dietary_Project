@@ -175,6 +175,40 @@ SpatialDimPlot(ms_31RT,
                image.alpha = 0.8,
                pt.size.factor = 4) + NoLegend()
 
+############################################
+save_path <- "../../figures/ms_31RT/SpatialDimPlot_ms_31RT.png"
+
+# Generate the plot and store it in a variable
+spatial_plot <- SpatialDimPlot(ms_31RT, 
+                               cells.highlight = banksy_cells[setdiff(names(banksy_cells), "NA")], 
+                               cols.highlight = c("#FFFF00", "grey50"), facet.highlight = T, 
+                               combine = T,
+                               image.alpha = 0.8,
+                               pt.size.factor = 4) + NoLegend()
+
+# Save as high-quality PNG (300 DPI for publication)
+ggsave(filename = save_path, plot = spatial_plot, width = 8, height = 6, dpi = 300)
+
+
+save_path2 <- "../../figures/ms_31RT/Clusters_4n2n3n14.png"
+spatial_4n14 <- SpatialDimPlot(subset(ms_31RT, idents = c("4", "14", "2", "3")), label = FALSE, repel = TRUE, 
+               pt.size.factor = 5, image.alpha = 2, alpha = 5)
+# Save as high-quality PNG (300 DPI for publication)
+ggsave(filename = save_path2, plot = spatial_4n14, width = 8, height = 6, dpi = 300)
+
+
+#########################
+# More on cluster 4
+
+# Extract top 10 genes
+top10_genes <- c("Troap.m0", "Aspm.m0", "Hmmr.m0", "Kif18b.m0", "Prr11.m0", 
+                 "Cenpf.m0", "Aurkb.m0", "Ube2c.m0", "Cdc20.m0", "Cenpe.m0")
+
+# Generate violin plot
+VlnPlot(ms_31RT, features = top10_genes, group.by = "seurat_clusters", pt.size = 0) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
 #---------------------------Marker Genes ------------------------------
 
 markers <- FindAllMarkers(
@@ -187,18 +221,20 @@ markers <- FindAllMarkers(
 
 top_markers <- markers %>%
   group_by(cluster) %>%      # Group by cluster
-  slice_max(n = 5, order_by = avg_log2FC) %>%  # Select top 5 genes per cluster by log fold change
+  slice_max(n = 15, order_by = avg_log2FC) %>%  # Select top 5 genes per cluster by log fold change
   ungroup()
-
+subset(top_markers, cluster == 4 )
 print(top_markers)
 
 View(top_markers)
 VlnPlot(ms_31RT, features = c("Ppp1r1b.m0", "Gene2", "Gene3"), group.by = "banksy_cluster")
 
-
+dim(markers)
+summary(markers$p_val)
 # View the top marker genes
 
-
+# TODO: Need to customize the file output here
+write.csv(markers, "../../data/ClusterGenes/ms_31RT_top15.csv", row.names = FALSE)
 
 
 
