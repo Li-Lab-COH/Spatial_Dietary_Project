@@ -10,6 +10,7 @@ library(Banksy)
 library(rstudioapi)
 setwd(dirname(getActiveDocumentContext()$path))
 
+set.seed(1337)
 ####################################################################
 # This script performs the initial cluster analysis using BANKSy's algorithm.
 # I plan to make this algorithm automatic for different BANKSY parameters
@@ -27,14 +28,19 @@ setwd(dirname(getActiveDocumentContext()$path))
 # BANKSY SPECIFIC PARAMETERS
 #     These values will be used for the name of the folder where all of the outputs
 #     will be saved. I need to figure out how to pass this information over
-#     to the EnrichmentAnalysis
+#     to the EnrichmentAnalysis.R
 #     
 #     lambda = 
 #     k_geom
 # 
-#  lambda = 0.2, verbose = TRUE,
-assay = "Spatial.008um", slot = "data", features = "variable",
-k_geom = 30 
+# OUTPUT:
+#       Per cluster top marker gene list
+#       Per cluster marker gene statistics report:
+# 
+# 
+# 
+# 
+# 
 # 
 # 
 
