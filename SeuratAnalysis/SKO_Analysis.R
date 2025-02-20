@@ -31,7 +31,7 @@ set.seed(1337)
 #     to the EnrichmentAnalysis.R
 #     
 #     lambda = 
-#     k_geom
+#     k_geom =
 # 
 # OUTPUT:
 #       Per cluster top marker gene list
