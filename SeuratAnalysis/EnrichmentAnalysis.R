@@ -24,12 +24,23 @@ top_number = 15
 # Output location
 # TODO: Need to make sure that plots have the mouse label on the title
 # Define the directory to save figures
-save_dir_GO <- "../../figures/ms_31RT/GO/"
-save_dir_KEGG <- "../../figures/ms_31RT/KEGG/"
+
+# save_dir_GO <- "../../figures/ms_31RT/GO/"
+# save_dir_KEGG <- "../../figures/ms_31RT/KEGG/"
+
+save_dir_GO <- "../../figures/ms_5_RT/GO/"
+save_dir_KEGG <- "../../figures/ms_5_RT/KEGG/"
+
+# Create directories if they do not exist
+dir.create(save_dir_GO, recursive = TRUE, showWarnings = FALSE)
+dir.create(save_dir_KEGG, recursive = TRUE, showWarnings = FALSE)
+
+
 
 #---------------Preparing data-----------
 
-marker_genes <- read.csv("../../data/ClusterGenes/ms_31RT.csv")
+# marker_genes <- read.csv("../../data/ClusterGenes/ms_31RT.csv")
+marker_genes <- read.csv("../../data/ClusterGenes/ms_5_RT.csv")
 all_clusters <- sort(unique(as.integer(markers$cluster)))[1]
 
 
@@ -140,7 +151,7 @@ for (clust in all_clusters) {
     } else{message(paste("No ego Results - Cluster: ", clust))}
     
     # Ensure KEGG results are not empty before plotting
-    if (exists("kegg") && nrow(kegg@result) > 0) {
+    if (exists("kegg") && dim(kegg)[1] > 0) {
       
       # Remove " - Mus musculus (house mouse)" from pathway names
       kegg@result$Description <- gsub(" - Mus musculus \\(house mouse\\)", "", kegg@result$Description)
@@ -177,4 +188,5 @@ for (clust in all_clusters) {
     message(paste("No significant genes for Cluster", clust, "- Skipping..."))
   }
 }
+
 
