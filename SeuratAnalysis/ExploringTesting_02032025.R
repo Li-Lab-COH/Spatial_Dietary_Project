@@ -8,8 +8,9 @@ library(rstudioapi)
 
 setwd(dirname(getActiveDocumentContext()$path))
 
-data_F07837 = Load10X_Spatial("../../data/SpacerangerCountOutput/BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07837_22WJCYLT3/outs/",
-                bin.size = c(8))
+F07837_loc = "../../data/SpacerangerCountOutput/BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07837_22WJCYLT3/outs/"
+
+data_F07837 = Load10X_Spatial(F07837_loc, bin.size = c(8))
 
 
 
