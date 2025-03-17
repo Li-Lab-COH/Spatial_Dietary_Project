@@ -1,20 +1,74 @@
 # Load required library
 library(Seurat)
 library(patchwork)  # For arranging multiple plots
+library(ggplot2)
 
 # Define Seurat object
-seurat_obj <- F07835_3_RT  # Change if using another dataset
+seurat_obj <- F07837_31_RT  # Change if using another dataset
+# seurat_obj <- F07833_5_RT
 grouping_name <- "BANKSY_snn_res.0.8"
-
+grouping_name <- "BANKSY_snn_res.0.5"
 
 # Function to generate violin plots dynamically
+# generate_violin_plots <- function(marker_list, cell_type, pointSize = 0.3) {
+#   plots <- lapply(marker_list, function(gene) {
+#     VlnPlot(seurat_obj, features = gene, group.by = grouping_name, pt.size = pointSize) + 
+#       ylim(0.1, NA) + ggtitle(paste(cell_type, "-", gene))
+#   })
+#   wrap_plots(plots)  # Arrange plots together
+# }
+# generate_violin_plots <- function(marker_list, cell_type, pointSize = 0.3) {
+#   plots <- lapply(marker_list, function(gene) {
+#     VlnPlot(seurat_obj, features = gene, group.by = grouping_name, pt.size = 0.3) +
+#       coord_cartesian(ylim = c(1, NA)) +
+#       ggtitle(paste(cell_type, "-", gene))
+#   })
+#   wrap_plots(plots)  # Arrange plots together
+# }
+
 generate_violin_plots <- function(marker_list, cell_type, pointSize = 0.3) {
   plots <- lapply(marker_list, function(gene) {
-    VlnPlot(seurat_obj, features = gene, group.by = grouping_name, pt.size = pointSize) + 
-      ylim(0.1, NA) + ggtitle(paste(cell_type, "-", gene))
+    # Try to fetch data safely
+    expr_data <- tryCatch(
+      FetchData(seurat_obj, vars = gene),
+      error = function(e) {
+        message(paste("Warning: Gene", gene, "not found in Seurat object. Skipping..."))
+        return(NULL)  # Skip plotting if gene isn't found
+      }
+    )
+    
+    if (is.null(expr_data)) return(ggplot() + ggtitle(paste(cell_type, "-", gene, "(Not Found)")))
+    
+    meta_data <- seurat_obj@meta.data
+    plot_data <- data.frame(Expression = expr_data[, 1], Group = meta_data[[grouping_name]])
+    
+    # Remove zero values
+    plot_data <- plot_data[plot_data$Expression > 0, ]
+    
+    # If all values are zero, return a blank plot
+    if (nrow(plot_data) == 0) {
+      return(ggplot() + ggtitle(paste(cell_type, "-", gene, "(No Non-Zero Values)")))
+    }
+    
+    # Suppress warnings only for the ggplot call
+    suppressWarnings(
+      suppressMessages(
+        ggplot(plot_data, aes(x = Group, y = Expression, fill = Group)) +
+          geom_violin(scale = "width") +
+          geom_jitter(width = 0.2, size = pointSize, alpha = 0.5) +
+          coord_cartesian(ylim = c(min(plot_data$Expression), NA)) +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+          ggtitle(paste(cell_type, "-", gene))
+      )
+    )
   })
+  
   wrap_plots(plots)  # Arrange plots together
 }
+
+
+
 
 #----------------------------- Immune Cell markers-------------------------------
 # Natural Killer cells
@@ -22,45 +76,75 @@ generate_violin_plots <- function(marker_list, cell_type, pointSize = 0.3) {
 nk_markers <- c("Gzmb", "Ifng", "Prf1")
 generate_violin_plots(nk_markers, "NK Cell")
 
-#t_cell_markers
-t_cell_markers <- c("Cd3e", "Cd4", "Cd8a", "Foxp3", "Tbx21", "Gzmk")
+#t_cell_markers - cd4, treg, and cd8
+t_cell_markers <- c("Cd3e", "Cd4", "Cd8a", "Foxp3", "Tbx21", "Gzmk", "Il2ra", "Gzmb", "Prf1")
 generate_violin_plots(t_cell_markers, "T cells")
 
 # tcr markers
 tcr_markers <- c("Trac", "Trbc1", "Trbc2", "Trdc")
 generate_violin_plots(tcr_markers, "TCR Markers")
 
+# be cell markers
+b_cell_markers <- c("Cd19", "Cd79a", "Ms4a1", "Ighm", "Pax5", "Cd22")
+generate_violin_plots(b_cell_markers, "B cells")
+
 # Macrophages
-macrophage_markers <- c("Adgre1", "Cd68", "Itgam", "Mrc1")
+macrophage_markers <- c("Adgre1", "Cd68", "Itgam", "Mrc1", "Tnf", "Il1b")
 generate_violin_plots(macrophage_markers, "Macrophage")
 
 # Dendritic Cells (DCs)
-dc_markers <- c("Itgax", "H2-Ab1", "Cd74", "Xcr1")
+dc_markers <- c("Itgax", "H2-Ab1", "Cd74", "Xcr1", "Cd86", "Batf3")
 generate_violin_plots(dc_markers, "Dendritic Cell")
 
-# CD4+ T Cells
-cd4_markers <- c("Cd3e", "Cd4", "Foxp3", "Il2ra")
-generate_violin_plots(cd4_markers, "CD4+ T Cell")
 
-# B Cells 
-b_markers <- c("Cd19", "Ms4a1", "Cd79a")
-generate_violin_plots(b_markers, "B Cell")
+# -------------------------- Other immune cells ------------------------------
+# Myeloid-derived suppressor cells
+mdsc_markers <- c("Ly6g", "Arg1", "Nos2", "S100a8", "S100a9")
+generate_violin_plots(mdsc_markers, "MDSCs")
 
-# CD8+ T Cells
-cd8_markers <- c("Cd3e", "Cd8a", "Gzmb", "Prf1")
-generate_violin_plots(cd8_markers, "CD8+ T Cell")
+# Tregs
+treg_markers <- c("Foxp3", "Il2ra", "Ctla4", "Tigit", "Ikzf2")
+generate_violin_plots(treg_markers, "Regulatory T Cells")
 
+# Exhausted T cells
+exhausted_t_cell_markers <- c("Pdcd1", "Ctla4", "Lag3", "Havcr2", "Tox")
+generate_violin_plots(exhausted_t_cell_markers, "Exhausted T Cells")
 
-#------------------------------- Searching MyC-CaP variants ------------------------------
-grep("Myc", rownames(F07833_5_RT[["Spatial.008um"]]), value = TRUE, ignore.case = TRUE)
+# Tumor associated macrophages (TAM)
+# anti-tumor
+tam_markers_anti_tumor <- c("Nos2", "Cd86", "Il12b") 
+generate_violin_plots(tam_markers_anti_tumor, "Tumor-Associated Macrophages")
+
+# pro tumorigenic TAM
+pro_tumor_TAM <- c("Mrc1", "Arg1")
+generate_violin_plots(pro_tumor_TAM, "Pro tumorigenic TAM")
+
+# Neutrophils and Tumor-associated neutrophils (TANs)
+# N1 Neutrophils - Anti Tumor
+n1_markers <- c("Cxcr3", "Il12b", "Nos2", "Tnf", "Il1b", "Ccl3", "Ccl4", "Ccl5", "Mpo")
+generate_violin_plots(n1_markers, "N1 Neutrophils")
+
+# N2 Neutrophils (Pro-Tumor)
+n2_markers <- c("S100a8", "S100a9", "Arg1", "Tgfb1", "Vegfa")
+generate_violin_plots(n2_markers, "N2 Neutrophils")
+
+# Mast cells
+mast_cell_markers <- c("Kit", "Fcer1a", "Mcpt1", "Cpa3")
+generate_violin_plots(mast_cell_markers, "Mast Cells")
+
+# Fibroblast
+fibroblast_markers <- c("Fap", "Pdgfrb", "Col1a1", "Acta2")
+generate_violin_plots(fibroblast_markers, "Fibroblast-Associated Immune Cells")
+
+#--------------------------- Searching MyC-CaP Effects--------------------------
 # based on CHI V. DANG* 1999 - mini review of myc genes
 # Myc
-mycs <- c("Myc", "Mycn", "Mycl")
-generate_violin_plots(mycs, "Mycs", 1)
+mycs <- c("Myc", "Mycn", "Mycl", "Ar")
+generate_violin_plots(mycs, "Mycs", 0.3)
 
 # AR
-VlnPlot(seurat_obj, features = "Ar", group.by = grouping_name, pt.size = 0.3) +
-  ylim(0.1, NA)  # Set lower bound to 0.5
+# VlnPlot(seurat_obj, features = "Ar", group.by = grouping_name, pt.size = 0.3) +
+#   ylim(0.1, NA)  # Set lower bound to 0.5
 
 # Cell Growth and Proliferation
 myc_growth <- c("Ccna2", "Ccnd1", "Ccne1", "Cdk1", "Cdc25a", "Rcc1", "Odc1", "Tert", "Tk1")
@@ -82,15 +166,45 @@ generate_violin_plots(myc_metabolism, "Metabolism")
 myc_differentiation <- c("Cebpa", "Thbs1", "H2-K1", "H2-D1", "Col1a1", "Col1a2", "Col6a3", "Col3a1")
 generate_violin_plots(myc_differentiation, "Downregulated differentiation")
 
+# -------------------Additional for SKO cells ---------------------------------
+# Prostate-Specific & Epithelial Markers
+myc_prostate_markers <- c("Epcam", "Nkx3-1", "Krt8", "Krt18")
+generate_violin_plots(myc_prostate_markers, "Prostate-specific markers")
+
+# Additional Proliferation Markers
+myc_proliferation <- c("Mki67", "E2f1", "E2f2", "E2f3")
+generate_violin_plots(myc_proliferation, "Proliferation markers")
+
+# Myc-Driven Metabolism and Transporters
+myc_metabolic_transporters <- c("Slc7a5")
+generate_violin_plots(myc_metabolic_transporters, "Myc metabolic transporters")
+
+# Optional: If your SKO line was derived from a probasin-driven model
+myc_probasin <- c("Pbsn")
+generate_violin_plots(myc_probasin, "Probasin expression")
+
+#--------------------- Epithelial cell markers---------------------------------
+# Based on the Crowley paper - Crowley, Laura, et al. Elife 9 (2020): e59465.
+
+# Lum A, D, L, P
+luminal_markers <- c("Tgm4", "Msmb", "Ppp1r1b")
+generate_violin_plots(luminal_markers, "Lumin A/D/L/P")
+
+# lumP
+lump_markers <- c("Ppp1r1b", "Cldn10")
+generate_violin_plots(lump_markers, "Proximal Luminal Cells (LumP)")
+
+# Periurethral epithelial population
+pru_markers <- c("Ly6d", "Aqp3", "Ppp1r1b")
+generate_violin_plots(pru_markers, "Periurethral Epithelial Cells (PrU)")
+
+
+#------------------------------- SKO cells --------------------------------
 
 #------------------------Searching for markers------------------------------
 
-b_cell_markers <- c("Cd19", "Cd79a", "Ms4a1", "Ighm", "Pax5", "Cd22")
-macrophage_markers <- c("Adgre1", "Cd68", "Itgam", "Tnf", "Il1b")
-dendritic_cell_markers <- c("Itgax", "Xcr1", "Cd86", "Batf3")
-neutrophil_markers <- c("S100a8", "S100a9", "Ly6g", "Cxcr2")
 
-for (gene in tcr_markers) {
+for (gene in basal_markers) {
   print("")
   print(paste0("current gene search:", gene) )
   found <- grep(gene, rownames(seurat_obj[["Spatial.008um"]]), value = TRUE, ignore.case = TRUE)
@@ -101,10 +215,20 @@ for (gene in tcr_markers) {
     print("Nothing found :(")
   }
 }
-
-
-
 #
+
+
+# Visualizing 
+Idents(seurat_obj) <- seurat_obj$BANKSY_snn_res.0.8
+SpatialDimPlot(subset(seurat_obj, idents = c("0", "4", "6")), label = FALSE, repel = TRUE, 
+               pt.size.factor = 5, image.alpha = 2, alpha = 5)
+
+
+Idents(seurat_obj) <- seurat_obj$BANKSY_snn_res.0.5
+SpatialDimPlot(subset(seurat_obj, idents = c("0", "1")), label = FALSE, repel = TRUE, 
+               pt.size.factor = 5, image.alpha = 2, alpha = 5)
+
+#--------------------------- Older Stuff --------------------------------------
 
 
 
@@ -156,8 +280,6 @@ VlnPlot(seurat_obj, features = "Gzma", group.by = grouping_name, pt.size = 1) +
 VlnPlot(seurat_obj, features = "Prf1", group.by = grouping_name, pt.size = 1) +
   ylim(0.1, NA)  # Set lower bound to 0.5
 
-SpatialDimPlot(subset(seurat_obj, idents = c("3", "4")), label = FALSE, repel = TRUE, 
-               pt.size.factor = 5, image.alpha = 2, alpha = 5)
 
 
 #--------------------------Macrophages T cells----------------------------------
