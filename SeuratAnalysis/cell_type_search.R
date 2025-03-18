@@ -4,7 +4,8 @@ library(patchwork)  # For arranging multiple plots
 library(ggplot2)
 
 # Define Seurat object
-seurat_obj <- F07837_31_RT  # Change if using another dataset
+rm(F07835_27_LFRT)
+seurat_obj <- F07834_28_LFRT  # Change if using another dataset
 # seurat_obj <- F07833_5_RT
 grouping_name <- "BANKSY_snn_res.0.8"
 grouping_name <- "BANKSY_snn_res.0.5"
@@ -73,7 +74,7 @@ generate_violin_plots <- function(marker_list, cell_type, pointSize = 0.3) {
 #----------------------------- Immune Cell markers-------------------------------
 # Natural Killer cells
 # nk_markers <- c("Ncr1", "Klrb1c", "Klra8", "klra", "Gzmb", "Ifng", "Prf1")
-nk_markers <- c("Gzmb", "Ifng", "Prf1")
+nk_markers <- c("Gzmb", "Ifng", "Prf1", "Ncr1", "Itga2")
 generate_violin_plots(nk_markers, "NK Cell")
 
 #t_cell_markers - cd4, treg, and cd8
@@ -89,7 +90,7 @@ b_cell_markers <- c("Cd19", "Cd79a", "Ms4a1", "Ighm", "Pax5", "Cd22")
 generate_violin_plots(b_cell_markers, "B cells")
 
 # Macrophages
-macrophage_markers <- c("Adgre1", "Cd68", "Itgam", "Mrc1", "Tnf", "Il1b")
+macrophage_markers <- c("Adgre1", "Cd68", "Itgam", "Mrc1", "Tnf", "Il1b", "Csf1r")
 generate_violin_plots(macrophage_markers, "Macrophage")
 
 # Dendritic Cells (DCs)
@@ -199,12 +200,19 @@ pru_markers <- c("Ly6d", "Aqp3", "Ppp1r1b")
 generate_violin_plots(pru_markers, "Periurethral Epithelial Cells (PrU)")
 
 
-#------------------------------- SKO cells --------------------------------
+#------------------------------- Pro-tumorogenic --------------------------------
+pro_tumor <- c("Cd274", "Arg1", "Mmp9")
+generate_violin_plots(pro_tumor, "pro_tumor")
 
+N2_markers <- c("Csf3", "Retnlg", "Tgm2", "Cxcr2")
+generate_violin_plots(N2_markers, "N2")
+
+M2_markers <- c("Cd163", "Mrc1", "Il10", "Ccl22")
+generate_violin_plots(M2_markers, "M2")
 #------------------------Searching for markers------------------------------
 
 
-for (gene in basal_markers) {
+for (gene in M2_markers) {
   print("")
   print(paste0("current gene search:", gene) )
   found <- grep(gene, rownames(seurat_obj[["Spatial.008um"]]), value = TRUE, ignore.case = TRUE)
