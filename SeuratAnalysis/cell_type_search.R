@@ -210,9 +210,9 @@ generate_violin_plots(N2_markers, "N2")
 M2_markers <- c("Cd163", "Mrc1", "Il10", "Ccl22")
 generate_violin_plots(M2_markers, "M2")
 #------------------------Searching for markers------------------------------
+adgre <- c("Lc3a")
 
-
-for (gene in M2_markers) {
+for (gene in adgre) {
   print("")
   print(paste0("current gene search:", gene) )
   found <- grep(gene, rownames(seurat_obj[["Spatial.008um"]]), value = TRUE, ignore.case = TRUE)
