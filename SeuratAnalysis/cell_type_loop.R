@@ -8,9 +8,11 @@ library(future)
 # Prevent unwanted parallelization
 plan("sequential")
 
-# Define paths
-input_dir <- "/Users/janzules/Roselab/Spatial/Dietary_project/data/Rogelio/Analysis_031625/BANKSY_Normalized_QC_Filtered"
-output_base <- "/Users/janzules/Roselab/Spatial/dietary_project/figures/from_Rogelio_objects/cell_type_search"
+# # Define paths
+input_dir <- "~/1Work/RoseLab/Spatial/Dietary_Project/data/Rogelio/Analysis_final/BANKSY_Normalized_QC_Filtered_minUMI_50_minGene50_MT5/"
+output_base <- "~/1Work/RoseLab/Spatial/Dietary_Project/Figures/Rogelio_final"
+# input_dir <- "/Users/janzules/Roselab/Spatial/Dietary_project/data/Rogelio/Analysis_031625/BANKSY_Normalized_QC_Filtered"
+# output_base <- "/Users/janzules/Roselab/Spatial/dietary_project/figures/from_Rogelio_objects/cell_type_search"
 
 # List .rds files (ignoring directories such as "Plots" and "Cluster_Markers")
 rds_files <- list.files(input_dir, pattern = "\\.rds$", full.names = TRUE)
