@@ -55,3 +55,36 @@ for (file_path in file_list) {
 }
 
 message("Processing complete. All plots saved in: ", output_dir)
+
+
+
+
+
+#--------------------------------- Solo view ----------------------------------
+fig_directory_Ar <- "~/Roselab/Spatial/dietary_project/figures/Cell_Typing_RCTD/"
+
+DefaultAssay(prostate_ST) <- "Spatial.008um"
+
+ar_plot <- SpatialFeaturePlot(prostate_ST, features = "Ar",interactive = FALSE,
+                   image.alpha = 0.2,
+                   pt.size.factor = 3
+                   )
+
+
+ggsave(
+  filename = file.path(fig_directory_Ar, "F07834_28_LFRT_AR.png"),
+  plot = ar_plot,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+# SpatialFeaturePlot(seurat_obj, features = ar_gene,
+#                    image.alpha = 0.2,
+#                    pt.size.factor = 10,
+#                    crop = TRUE) 
+
+
+SpatialFeaturePlot(prostate_ST, features = "Adgre1",interactive = FALSE,
+                   image.alpha = 0.2,
+                   pt.size.factor = 6
+)

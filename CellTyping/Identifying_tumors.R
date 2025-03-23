@@ -2,23 +2,26 @@ library(Seurat)
 library(Matrix)
 library(dplyr)
 library(ggplot2)
-install.packages("enrichR")
+library(SingleR)
+library(celldex)
 library(enrichR)
 set.seed(1337)
 
-# Set your working directory (optional)
-data_dir <- "~/1Work/RoseLab/Spatial/Dietary_Project/data/Unal_2024_Myc_CaP/"
 
+#------------------------------- prepping data -------------------------------
+# data_dir <- "~/1Work/RoseLab/Spatial/Dietary_Project/data/Unal_2024_Myc_CaP/"
+data_dir <- "~/Roselab/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/"
 # Load the data
 sc_data <- Read10X(data.dir = data_dir)
-
 # Create a Seurat object
 seurat_obj <- CreateSeuratObject(counts = sc_data, project = "Unal_MyC_CaP_WT", min.cells = 3, min.features = 200)
 
+
+#------------------------- Working with Seurat object -------------------------
 # Calculate % mitochondrial genes
 seurat_obj[["percent.mt"]] <- PercentageFeatureSet(seurat_obj, pattern = "^mt-")
-VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), 
-        ncol = 3, pt.size = 0)
+# VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), 
+#         ncol = 3, pt.size = 0)
 # Get limits for nFeature_RNA
 nf <- seurat_obj@meta.data$nFeature_RNA
 nf_low <- quantile(nf, 0.025)
@@ -32,8 +35,6 @@ seurat_obj <- subset(seurat_obj, subset =
                        nFeature_RNA <= nf_high
 )
 
-
-
 # Run standard workflow for clustering
 seurat_obj <- NormalizeData(seurat_obj)
 seurat_obj <- FindVariableFeatures(seurat_obj)
@@ -44,9 +45,18 @@ seurat_obj <- FindNeighbors(seurat_obj, dims = 1:10)
 seurat_obj <- FindClusters(seurat_obj, dims = 1:10)
 seurat_obj <- RunUMAP(seurat_obj, dims = 1:10)
 
-# Plot clusters
-DimPlot(seurat_obj, reduction = "umap", label = TRUE, pt.size = 0.5)
+fig_directory <- "~/Roselab/Spatial/dietary_project/figures/Cell_Typing_RCTD/Unal_reference/"
 
+# Plot clusters
+p1_umap <- DimPlot(seurat_obj, reduction = "umap", label = TRUE, pt.size = 0.5)
+
+ggsave(
+  filename = file.path(fig_directory, "uMap.png"),
+  plot = p1_umap,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
 # DotPlot(seurat_obj, features = c("Wfdc12", "Fgb", "HSpb1", "Lcn11", "Cldn3")) + RotatedAxis()
 
 
@@ -67,6 +77,37 @@ seurat_obj$celltype <- "Other"
 seurat_obj$celltype[seurat_obj$seurat_clusters %in% tumor_clusters] <- "MyC-CaP"
 Idents(seurat_obj) <- "celltype"
 
+
+
+#--------------- Finding the 20 markers for MyC-CaP cells ----------------------
+
+Idents(seurat_obj) <- "seurat_clusters"
+
+all_markers <- FindAllMarkers(
+  seurat_obj,
+  only.pos = TRUE,
+  min.pct = 0.25,
+  logfc.threshold = 0.25
+  )
+
+
+top20_markers_all <- all_markers %>%
+  group_by(cluster) %>%
+  top_n(n = 20, wt = avg_log2FC)
+
+
+tumor_clusters <- c(0, 1, 2, 3, 4, 5, 7, 8, 9, 10)
+
+top20_tumors <- top20_markers_all %>%
+  filter(cluster %in% tumor_clusters)
+
+output_file <- "~/Roselab/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/top20_tumor_markers.csv"
+write.csv(top20_tumors, file = output_file, row.names = FALSE)
+
+
+
+
+
 #--------------------------Cell Idents --------------------------------------#
 Idents(seurat_obj) <- "seurat_clusters"
 
@@ -85,8 +126,8 @@ non_tumor_clusters <- c(6, 11, 12, 13, 14, 15)
 
 top20_non_tumor_markers <- top20_markers_all_clusters %>%
   filter(cluster %in% non_tumor_clusters)
+# write.csv(top20_non_tumor_markers, "~/1Work/RoseLab/Spatial/Dietary_Project/data/Unal_2024_Myc_CaP/top20NonTumor.csv")
 
-write.csv(top20_non_tumor_markers, "~/1Work/RoseLab/Spatial/Dietary_Project/data/Unal_2024_Myc_CaP/top20NonTumor.csv")
 
 
 #-----------------------subsetting non tumors-------------------------------#
@@ -124,8 +165,60 @@ all_markers_nontummor <- FindAllMarkers(non_tumor_obj, only.pos = TRUE, min.pct 
 top20_markers_non_tumors <- all_markers_nontummor %>%
   group_by(cluster) %>%
   top_n(n = 20, wt = avg_log2FC)
+View(top20_markers_non_tumors)
 
-write.csv(top20_markers_non_tumors, "~/1Work/RoseLab/Spatial/Dietary_Project/data/Unal_2024_Myc_CaP/top20NonTumor.csv")
+# write.csv(top20_markers_non_tumors, "~/1Work/RoseLab/Spatial/Dietary_Project/data/Unal_2024_Myc_CaP/top20NonTumor.csv")
+
+
+
+
+#---------------------------------- SingleR -----------------------------------
+ref <- ImmGenData()
+
+# Extract normalized gene expression matrix from your Seurat object
+expr_mat <- GetAssayData(non_tumor_obj, slot = "data")
+
+# Get cluster identities
+clusters <- Idents(non_tumor_obj)
+
+# Run SingleR to annotate each cluster using ImmGenData
+singleR_preds <- SingleR(test = expr_mat,
+                         ref = ref,
+                         labels = ref$label.fine,
+                         clusters = clusters)
+
+# See predicted cell type for each cluster
+singleR_preds$labels
+
+# View in table format: cluster ID vs predicted label
+table(singleR_preds$labels)
+View(singleR_preds$scores)
+
+# Get top 3 labels for each cluster
+top_matches <- apply(singleR_preds$scores, 1, function(x) {
+  sorted <- sort(x, decreasing = TRUE)
+  data.frame(
+    Top1 = names(sorted)[1],
+    Score1 = sorted[1],
+    Top2 = names(sorted)[2],
+    Score2 = sorted[2],
+    Top3 = names(sorted)[3],
+    Score3 = sorted[3]
+  )
+})
+
+# Combine into a data frame
+top_matches_df <- do.call(rbind, top_matches)
+top_matches_df$Cluster <- rownames(top_matches_df)
+
+# Reorder columns
+top_matches_df <- top_matches_df[, c("Cluster", "Top1", "Score1", "Top2", "Score2", "Top3", "Score3")]
+
+# View table
+print(top_matches_df)
+
+
+#------------------------------ Older stuff -----------------------------------
 
 VlnPlot(non_tumor_obj, features = c("Xcr1", "Flt3", "Timd4"), group.by = "seurat_clusters", pt.size = 0)
 #Tregs
@@ -142,21 +235,45 @@ VlnPlot(non_tumor_obj, features = c("Nkg7", "Klrk1", "Gzmb"), group.by = "seurat
 FeaturePlot(non_tumor_obj, features = c("Nkg7", "Klrk1", "Klrd1"), reduction = "umap")
 FeaturePlot(non_tumor_obj, features = c("Gzmb", "Prf1", "Cd244"), reduction = "umap")
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #--------------------Final marker list---------------------------------------
 # Map cluster numbers to labels
-cluster_annotations <- c(
-  "2" = "Macrophages",
-  "5" = "Macrophages",
-  "3" = "Pericytes",
-  "7" = "CD8+ T cells",
-  "9" = "Proliferating T cells",
-  "10" = "Dendritic cells",
-  "11" = "Endothelial cells",
-  "4" = "Neutrophils",
-  "12" = "CAFs",
-  "13" = "CAFs",
-  "14" = "M2 Macrophages"
-)
+# cluster_annotations <- c(
+#   "2" = "Macrophages",
+#   "5" = "Macrophages",
+#   "3" = "Pericytes",
+#   "7" = "CD8+ T cells",
+#   "9" = "Proliferating T cells",
+#   "10" = "Dendritic cells",
+#   "11" = "Endothelial cells",
+#   "4" = "Neutrophils",
+#   "12" = "CAFs",
+#   "13" = "CAFs",
+#   "14" = "M2 Macrophages"
+# )
+
+# Reannotating
+BiocManager::install("SingleR")
+BiocManager::install("celldex")  
 
 # Set identities to original clusters if not already
 Idents(non_tumor_obj) <- "seurat_clusters"
