@@ -10,7 +10,9 @@ set.seed(1337)
 
 #------------------------------- prepping data -------------------------------
 # data_dir <- "~/1Work/RoseLab/Spatial/Dietary_Project/data/Unal_2024_Myc_CaP/"
-data_dir <- "~/Roselab/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/"
+data_dir <- "~/Roselab/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/countMatrix/"
+fig_directory <- "~/Roselab/Spatial/dietary_project/figures/Cell_Typing_RCTD/Unal_reference/"
+# out_dir <- "~/Roselab/Spatial/dietary_project/data/cell_typing_reference/"
 # Load the data
 sc_data <- Read10X(data.dir = data_dir)
 # Create a Seurat object
@@ -45,18 +47,19 @@ seurat_obj <- FindNeighbors(seurat_obj, dims = 1:10)
 seurat_obj <- FindClusters(seurat_obj, dims = 1:10)
 seurat_obj <- RunUMAP(seurat_obj, dims = 1:10)
 
-fig_directory <- "~/Roselab/Spatial/dietary_project/figures/Cell_Typing_RCTD/Unal_reference/"
+# fig_directory <- "~/Roselab/Spatial/dietary_project/figures/Cell_Typing_RCTD/Unal_reference/"
 
 # Plot clusters
-p1_umap <- DimPlot(seurat_obj, reduction = "umap", label = TRUE, pt.size = 0.5)
-
-ggsave(
-  filename = file.path(fig_directory, "uMap.png"),
-  plot = p1_umap,
-  width = 8,
-  height = 6,
-  dpi = 300
-)
+# p1_umap <- DimPlot(seurat_obj, reduction = "umap", label = TRUE, pt.size = 0.5)
+# DimPlot(seurat_obj, reduction = "umap", label = TRUE, pt.size = 0.5)
+# 
+# ggsave(
+#   filename = file.path(fig_directory, "uMap.png"),
+#   plot = p1_umap,
+#   width = 8,
+#   height = 6,
+#   dpi = 300
+# )
 # DotPlot(seurat_obj, features = c("Wfdc12", "Fgb", "HSpb1", "Lcn11", "Cldn3")) + RotatedAxis()
 
 
@@ -77,7 +80,7 @@ seurat_obj$celltype <- "Other"
 seurat_obj$celltype[seurat_obj$seurat_clusters %in% tumor_clusters] <- "MyC-CaP"
 Idents(seurat_obj) <- "celltype"
 
-
+table(Idents(seurat_obj))
 
 #--------------- Finding the 20 markers for MyC-CaP cells ----------------------
 
@@ -172,12 +175,12 @@ View(top20_markers_non_tumors)
 
 
 
-#---------------------------------- SingleR -----------------------------------
+#------------------------------ SingleR Non-Tumor------------------------------
 ref <- ImmGenData()
 
 # Extract normalized gene expression matrix from your Seurat object
 expr_mat <- GetAssayData(non_tumor_obj, slot = "data")
-
+table(non_tumor_obj$seurat_clusters)
 # Get cluster identities
 clusters <- Idents(non_tumor_obj)
 
@@ -194,20 +197,45 @@ singleR_preds$labels
 table(singleR_preds$labels)
 View(singleR_preds$scores)
 
+rownames(singleR_preds)
 # Get top 3 labels for each cluster
-top_matches <- apply(singleR_preds$scores, 1, function(x) {
+# This doesn't take in the cluster label lapply does, here it uses the first 
+# column as row name
+# top_matches <- apply(singleR_preds$scores, 1, function(x) {
+#   sorted <- sort(x, decreasing = TRUE)
+#   data.frame(
+#     Top1 = names(sorted)[1],
+#     Score1 = sorted[1],
+#     Top2 = names(sorted)[2],
+#     Score2 = sorted[2],
+#     Top3 = names(sorted)[3],
+#     Score3 = sorted[3]
+#   )
+# })
+# top_matches_df <- do.call(rbind, top_matches)
+# top_matches_df$Cluster <- rownames(top_matches_df)
+
+# top_matches <- apply(singleR_preds, 1, function())
+
+scores <- singleR_preds$scores
+rownames(scores) <- rownames(singleR_preds)
+
+
+top_matches <- lapply(rownames(scores), function(cell_id){
+  x <- scores[cell_id, ]
   sorted <- sort(x, decreasing = TRUE)
   data.frame(
-    Top1 = names(sorted)[1],
+    Top1 = names(sorted)[1], 
     Score1 = sorted[1],
     Top2 = names(sorted)[2],
     Score2 = sorted[2],
     Top3 = names(sorted)[3],
-    Score3 = sorted[3]
+    Score3 = sorted[3],
+    row.names = cell_id,
+    stringsAsFactors = FALSE
   )
 })
 
-# Combine into a data frame
 top_matches_df <- do.call(rbind, top_matches)
 top_matches_df$Cluster <- rownames(top_matches_df)
 
@@ -216,6 +244,203 @@ top_matches_df <- top_matches_df[, c("Cluster", "Top1", "Score1", "Top2", "Score
 
 # View table
 print(top_matches_df)
+
+# non_tumor_df <- file.path(out_dir, "Non_tumor_matches.csv")
+# write.csv(top_matches_df, non_tumor_df)
+# 
+# out_data_dir <- "~/Roselab/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/non_tumor_cells.rds"
+# saveRDS(non_tumor_obj, out_data_dir)
+
+#----------------------- Transfering SingleR lables ---------------------------
+
+cluster_annotations <- c(
+  "0" = "ISG-high Macrophages",
+  "1" = "M2 Macrophages",
+  "2" = "Macrophages",
+  "3" = "Mesenchymal",
+  "4" = "LumP",
+  "5" = "Macrophages",
+  "6" = "Macrophages",
+  "7" = "NK + T Cells",
+  "8" = "Ambiguous/Low-Quality",
+  "9" = "Proliferating Macrophages",
+  "10" = "Dendritic Cells",
+  "11" = "Endothelial Cells",
+  "12" = "Fibroblasts",
+  "13" = "Fibroblasts",
+  "14" = "Resident Macrophages"
+)
+Idents(non_tumor_obj) <- "seurat_clusters"
+
+non_tumor_obj$celltype <- plyr::mapvalues(
+  x = as.character(Idents(non_tumor_obj)),
+  from = names(cluster_annotations),
+  to = cluster_annotations,
+  warn_missing = FALSE
+)
+
+Idents(non_tumor_obj) <- "celltype"
+
+table(Idents(non_tumor_obj))
+
+other_cells_fig_dir <- "~/Roselab/Spatial/dietary_project/figures/Cell_Typing_RCTD/UMAP_non_tumors.png"
+non_tumor_imgage <- DimPlot(non_tumor_obj, group.by = "celltype", label = TRUE, repel = TRUE)
+
+ggsave(
+  filename = other_cells_fig_dir,
+  plot = non_tumor_imgage,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+# Testing macrophage markers
+
+# Define canonical macrophage markers
+macrophage_markers <- c("Lyz2", "Cd68", "C1qa", "Adgre1")
+
+# Violin plot across all clusters
+VlnPlot(non_tumor_obj, features = macrophage_markers, group.by = "seurat_clusters", pt.size = 0) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Investigating cluster 4
+VlnPlot(non_tumor_obj, features = c("nCount_RNA", "nFeature_RNA"), group.by = "seurat_clusters")
+VlnPlot(non_tumor_obj, features = c("Krt8", "Krt7", "Epcam", "Cldn3", "Rab25")) #epithelial markers
+#luminal markers
+VlnPlot(non_tumor_obj, features = c("Ppp1r1b", "Msmb", "Cldn10", "Ly6d", "Aqp3"), group.by = "seurat_clusters")
+
+#
+# ----------------------------- Subsetting Nk + T cells ----------------------
+Idents(non_tumor_obj) <- "seurat_clusters"
+# Subset cluster 7 from the main object
+cluster7_obj <- subset(non_tumor_obj, idents = "7")
+cluster7_obj <- NormalizeData(cluster7_obj)
+cluster7_obj <- FindVariableFeatures(cluster7_obj)
+cluster7_obj <- ScaleData(cluster7_obj)
+
+
+cluster7_obj <- RunPCA(cluster7_obj)
+ElbowPlot(cluster7_obj)
+cluster7_obj <- RunUMAP(cluster7_obj, dims = 1:20)
+cluster7_obj <- FindNeighbors(cluster7_obj, dims = 1:20)
+cluster7_obj <- FindClusters(cluster7_obj, resolution = 0.8)  # You can tweak resolution
+
+DimPlot(cluster7_obj, label = TRUE, group.by = "seurat_clusters")
+
+FeaturePlot(cluster7_obj, features = c("Cd3d", "Cd3e", "Cd2"))    # T cells
+FeaturePlot(cluster7_obj, features = c("Nkg7", "Klrk1", "Gzmb"))  # NK cells
+
+# Assign new labels based on cluster ID
+Idents(cluster7_obj) <- "seurat_clusters"
+cluster7_obj$celltype <- "Unknown"
+cluster7_obj$celltype[Idents(cluster7_obj) == "1"] <- "T Cells"
+cluster7_obj$celltype[Idents(cluster7_obj) == "0"] <- "NK Cells"
+
+Idents(cluster7_obj) <- "celltype"
+table(Idents(cluster7_obj))
+
+# Transfering labels to non_tumor_obj
+t_nk_labels <- data.frame(
+  barcode = colnames(cluster7_obj),
+  tnk_identity = Idents(cluster7_obj),
+  stringsAsFactors = FALSE
+)
+non_tumor_obj$celltype <- as.character(non_tumor_obj$celltype)
+
+#Assign new labels where barcodes match
+non_tumor_obj$celltype[t_nk_labels$barcode] <- as.character(t_nk_labels$tnk_identity)
+non_tumor_obj$celltype <- factor(non_tumor_obj$celltype)
+
+
+table(non_tumor_obj$celltype)
+
+#-------------------------------- Finding Foxp3 --------------------------
+# Check expression
+foxp3_expr <- FetchData(non_tumor_obj, vars = "Foxp3")
+
+# Define Tregs as those with Foxp3 expression above a cutoff (e.g., > 0)
+treg_cells <- rownames(foxp3_expr)[foxp3_expr$Foxp3 > 0.4]
+length(treg_cells)
+# Convert to character so you can safely assign new label
+non_tumor_obj$celltype <- as.character(non_tumor_obj$celltype)
+
+# Now assign "Tregs" to Foxp3+ cells
+non_tumor_obj$celltype[treg_cells] <- "Tregs"
+
+# (Optional) Convert back to factor for clean plotting
+non_tumor_obj$celltype <- factor(non_tumor_obj$celltype)
+
+
+# Saving fully annotated non_tumor_cells
+Idents(non_tumor_obj) <- "celltype"
+table(Idents(non_tumor_obj))
+
+df <- as.data.frame(table(Idents(non_tumor_obj)))
+colnames(df) <- c("CellType", "Count")
+
+
+
+non_tumor_cells <- ggplot(df, aes(x = reorder(CellType, -Count), y = Count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_classic() +
+  labs(title = "Cell Type Distribution", x = "Cell Type", y = "Number of Cells") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+ggsave(
+  filename = "~/Roselab/Spatial/dietary_project/figures/Cell_Typing_RCTD/Unal_reference/non_tumor_reference_count.png",
+  plot = non_tumor_cells,
+  width = 8,
+  height = 6,
+  dpi = 300,
+  bg = "white"
+)
+# saveRDS(non_tumor_obj, "~/Roselab/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/non_tumor_cells_obj.rds")
+#-------------------Transfering All labels---------------------------------------
+table(Idents(non_tumor_obj))
+table(Idents(seurat_obj))
+dim(non_tumor_obj)
+
+# Step 1: Create label dataframe from non_tumor_obj
+label_df <- data.frame(
+  barcode = colnames(non_tumor_obj),
+  celltype = as.character(Idents(non_tumor_obj)),  # Ensures character from the start
+  stringsAsFactors = FALSE
+)
+
+# Step 2: Match barcodes
+matching_barcodes <- intersect(colnames(seurat_obj), label_df$barcode)
+
+# Step 3: Prep seurat_obj$celltype to avoid factor issues
+seurat_obj$celltype <- as.character(seurat_obj$celltype)
+
+# Step 4: Transfer labels using match() to align positions
+seurat_obj$celltype[matching_barcodes] <- label_df$celltype[
+  match(matching_barcodes, label_df$barcode)
+]
+
+# Step 5: (Optional) Convert to factor for plotting
+seurat_obj$celltype <- factor(seurat_obj$celltype)
+
+# Step 6: Confirm it worked
+table(seurat_obj$celltype, useNA = "ifany")
+
+#-----------Removing ambiguous population and saving --------------------------
+
+# Subset the object to keep only cells that are NOT labeled as "Ambiguous/Low-Quality"
+tumor_reference_clean <- subset(seurat_obj, subset = celltype != "Ambiguous/Low-Quality")
+Idents(tumor_reference_clean) <- "celltype"
+
+table(Idents(tumor_reference_clean))
+
+saveRDS(tumor_reference_clean, "~/Roselab/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/Fully_annotated_unal_reference.rds")
+
+
+
+
 
 
 #------------------------------ Older stuff -----------------------------------
@@ -350,34 +575,6 @@ Idents(non_tumor_obj) <- "celltype"
 table(Idents(non_tumor_obj))
 
 
-#-------------------Transfering labels---------------------------------------
-
-label_df <- data.frame(
-  barcode = colnames(non_tumor_obj),
-  celltype = Idents(non_tumor_obj)
-)
-
-table(Idents(seurat_obj))
-table(Idents(non_tumor_obj))
-
-# Ensure that the barcodes and celltype columns in label_df are characters
-label_df$barcode <- as.character(label_df$barcode)
-label_df$celltype <- as.character(label_df$celltype)
-
-# Find the matching barcodes between seurat_obj and label_df
-matching_barcodes <- intersect(colnames(seurat_obj), label_df$barcode)
-
-# (Optional) If seurat_obj$celltype already exists as a factor, convert it to character.
-seurat_obj$celltype <- as.character(seurat_obj$celltype)
-
-# Update only the matching barcodes with the new labels from label_df
-seurat_obj$celltype[matching_barcodes] <- label_df$celltype[match(matching_barcodes, label_df$barcode)]
-
-# Check the result
-table(seurat_obj$celltype, useNA = "ifany")
-
-
-non_tumor_obj$celltype
 
 
 
