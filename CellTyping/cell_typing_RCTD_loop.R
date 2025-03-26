@@ -117,6 +117,7 @@ for (file in file_list) {
   
   # Load the Seurat object for this sample
   prostate_ST <- readRDS(file)
+  prostate_ST <- subset(prostate_ST, subset = nCount_RNA >= 100)
   
   #############################
   # Setup output directories for this sample
@@ -174,7 +175,7 @@ for (file in file_list) {
   
   query <- SpatialRNA(coords, counts_hd, colSums(counts_hd))
   
-  RCTD <- create.RCTD(query, reference, max_cores = 10, UMI_min = 50)
+  RCTD <- create.RCTD(query, reference, max_cores = 10, UMI_min = 100)
   RCTD <- run.RCTD(RCTD, doublet_mode = "doublet")
   
   # Add RCTD results to metadata
