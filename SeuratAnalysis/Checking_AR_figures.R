@@ -4,8 +4,11 @@ library(ggplot2)
 library(patchwork)
 
 # Define directories
-input_dir <- "C:/Users/jonan/Documents/1Work/RoseLab/Spatial/Dietary_Project/data/Rogelio/Analysis/BANKSY_Normalized/Seurat_Objects/"
-output_dir <- "C:/Users/jonan/Documents/1Work/RoseLab/Spatial/Dietary_Project/Figures/Visualizing_sections/Ar_Gene"
+# input_dir <- "C:/Users/jonan/Documents/1Work/RoseLab/Spatial/Dietary_Project/data/Rogelio/Analysis/BANKSY_Normalized/Seurat_Objects/"
+# output_dir <- "C:/Users/jonan/Documents/1Work/RoseLab/Spatial/Dietary_Project/Figures/Visualizing_sections/Ar_Gene"
+input_dir <- "~/Roselab/Spatial/dietary_project/data/Rogelio/Analysis_final/Done/before_umi_change/"
+output_dir <- "~/Roselab/Spatial/dietary_project/figures/AR_spatial/"
+
 
 # Create output directory if it does not exist
 if (!dir.exists(output_dir)) {
@@ -18,7 +21,8 @@ ar_gene <- "Ar"
 
 # Get list of .rds files from the input directory
 file_list <- list.files(input_dir, pattern = "\\.rds$", full.names = TRUE)
-
+length(file_list)
+gsub("\\.rds$", "", basename(file_list))
 # Process each file
 for (file_path in file_list) {
   
@@ -39,8 +43,8 @@ for (file_path in file_list) {
   
   # Generate spatial expression plot for Ar gene
   ar_gene_plot <- SpatialFeaturePlot(seurat_obj, features = ar_gene,
-                                     image.alpha = 0.2,
-                                     pt.size.factor = 10,
+                                     image.alpha = 0.6,
+                                     pt.size.factor = 3,
                                      crop = TRUE) +
     ggtitle(paste("Ar Gene Expression for", sample_name)) +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
