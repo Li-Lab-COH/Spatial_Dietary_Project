@@ -10,7 +10,6 @@ library(devtools)
 library(spacexr)
 library(ggplot2)
 library(future)
-library(spacexr)
 
 # Prevent unwanted parallelization
 plan("sequential")
@@ -102,7 +101,7 @@ cluster <- droplevels(cluster)
 reference <- Reference(counts_ref, cluster, nUMI)
 
 # Get list of RDS files to process
-file_list <- list.files(path = "~/Roselab/Spatial/dietary_project/data/Rogelio/Analysis_final/", 
+file_list <- list.files(path = "~/Roselab/Spatial/dietary_project/data/Rogelio/Analysis_final", 
                         pattern = "\\.rds$", full.names = TRUE)
 
 #############################
@@ -117,7 +116,7 @@ for (file in file_list) {
   
   # Load the Seurat object for this sample
   prostate_ST <- readRDS(file)
-  prostate_ST <- subset(prostate_ST, subset = nCount_RNA >= 100)
+  prostate_ST <- subset(prostate_ST, subset = `nCount_Spatial.008um` >= 100)
   
   #############################
   # Setup output directories for this sample
