@@ -1,7 +1,7 @@
 ##########################
 # Author: Jonathan M. Anzules
 # e-mail: jonanzule@gmail.com
-# purpose: Celltypes all of my spatial data, tracks some qc metrics, generates figures
+# purpose: Testing various parameters for cell type annotation, exporting, cell counts, visuals, and parameters used
 
 
 # Load required libraries
@@ -9,32 +9,72 @@ library(Seurat)
 library(devtools)
 library(spacexr)
 library(ggplot2)
-library(future)
-
-# Prevent unwanted parallelization
-plan("sequential")
 set.seed(1337)
 
-# Load the scRNA-seq reference object once
-# MyC_CaP_ref <- readRDS("~/Roselab/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/Fully_annotated_unal_reference.rds")
-MyC_CaP_ref <- readRDS("~/Roselab/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/Fully_annotated_condensed.rds")
-# Directories for saving results
-labeled_rds_dir <- "~/Roselab/Spatial/dietary_project/data/CellTyping_objects/"
-figure_dir <- "~/Roselab/Spatial/dietary_project/figures/RCTD/"
+################################
+# Setting up Testing parameters
+################################
+args <- commandArgs(trailingOnly = TRUE)
+array_id <- as.numeric(args[1])  # This is your SLURM_ARRAY_TASK_ID
 
-# Create output folders for aggregated results if needed
-if (!dir.exists(labeled_rds_dir)) {
-  dir.create(labeled_rds_dir, recursive = TRUE)
-}
-if (!dir.exists(figure_dir)) {
-  dir.create(figure_dir, recursive = TRUE)
+param_df <- read.csv("/home/janzules/Spatial/dietary_project/data/cell_typing_reference/rctd_parameter_grid.csv",
+               row.names = 1, check.names = FALSE)
+# Assign parameter values
+test_name <- colnames(param_df)[array_id + 1]
+gene_cutoff <- as.numeric(param_df["gene_cutoff", array_id +1])
+fc_cutoff <- as.numeric(param_df["fc_cutoff", array_id +1])
+confidence_threshold <- as.numeric(param_df["confidence_threshold", array_id +1])
+doublet_threshold <- as.numeric(param_df["doublet_threshold", array_id +1])
+
+
+# Example: Print or use the parameters
+cat("Running test", test_name, "\n")
+cat("gene_cutoff:", gene_cutoff, "\n")
+cat("fc_cutoff:", fc_cutoff, "\n")
+cat("confidence_threshold:", confidence_threshold, "\n")
+cat("doublet_threshold:", doublet_threshold, "\n")
+
+
+
+# Create a named character vector of parameters
+param_lines <- c(
+  paste0("test_name: ", colnames(param_df)[array_id + 1]),
+  paste0("gene_cutoff: ", gene_cutoff),
+  paste0("fc_cutoff: ", fc_cutoff),
+  paste0("confidence_threshold: ", confidence_threshold),
+  paste0("doublet_threshold: ", doublet_threshold)
+)
+
+################################
+# Setting up directories
+################################
+# Major folder forl all the saved
+results_dir <- "/home/janzules/Spatial/dietary_project/data/RCTD_param_tests"
+
+# Test specific folders
+test_dir <- file.path(results_dir, test_name)
+spatial_plot_dir <- file.path(test_dir, "spatial_plots")
+hist_base_dir <- file.path(test_dir, "confidence_histograms")
+
+# Function to create directories
+ensure_dir <- function(dir_path){
+  if (!dir.exists(dir_path)){
+    dir.create(dir_path, recursive = TRUE)
+  }
 }
 
-# Base folders for figures (histograms and spatial plots)
-hist_base_dir <- file.path(figure_dir, "confidence_histograms")
-if (!dir.exists(hist_base_dir)) { dir.create(hist_base_dir, recursive = TRUE) }
-spatial_plot_dir <- file.path(figure_dir, "spatial_plot")
-if (!dir.exists(spatial_plot_dir)) { dir.create(spatial_plot_dir, recursive = TRUE) }
+# Create directories
+ensure_dir(test_dir)
+ensure_dir(spatial_plot_dir)
+ensure_dir(hist_base_dir)
+
+# saving parameters used for this test
+writeLines(param_lines, paste0(test_dir, "rctd_params", ".txt"))
+
+
+################################
+# Preparing important variables
+################################
 
 # Define expected cell types (using underscores)
 expected_cell_types <- c(
@@ -47,7 +87,6 @@ expected_cell_types <- c(
   "Dendritic_Cells",
   "Fibroblasts"
 )
-
 
 # Initialize master data frames for cell counts and MyC-CaP cutoff values
 label_df <- data.frame(row.names = expected_cell_types)
@@ -82,16 +121,18 @@ my_colors <- c(
 # Ensure the color vector is in the same order as `my_labels`
 my_colors <- my_colors[my_labels]
 
+################################
+# Creating Reference
+################################
+# Load the scRNA-seq reference object once
+# TODO: move this to the where all the reference building is happening
+MyC_CaP_ref <- readRDS("/home/janzules/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/Fully_annotated_condensed.rd")
 # Prepare the reference object (only once, outside loop)
 Idents(MyC_CaP_ref) <- "celltype"
-
 # Remove unwanted cell types (e.g., "Resident Macrophages")
 # cells_to_keep <- rownames(MyC_CaP_ref@meta.data)[!(MyC_CaP_ref$celltype %in% c("Resident Macrophages"))]
 # MyC_CaP_ref <- subset(MyC_CaP_ref, cells = cells_to_keep)
 # MyC_CaP_ref$celltype <- droplevels(MyC_CaP_ref$celltype)
-message("Reference cell counts:")
-print(table(MyC_CaP_ref$celltype))
-
 counts_ref <- MyC_CaP_ref[["RNA"]]$counts
 cluster <- as.factor(MyC_CaP_ref$celltype)
 nUMI <- MyC_CaP_ref$nCount_RNA
@@ -116,21 +157,21 @@ for (file in file_list) {
   
   # Load the Seurat object for this sample
   prostate_ST <- readRDS(file)
-  prostate_ST <- subset(prostate_ST, subset = `nCount_Spatial.008um` >= 100)
+  prostate_ST <- subset(prostate_ST, subset = nCount_Spatial.008um >= 100)
   
   #############################
   # Setup output directories for this sample
   #############################
   hist_folder <- file.path(hist_base_dir, sample_name)
-  if (!dir.exists(hist_folder)) {
-    dir.create(hist_folder, recursive = TRUE)
-    message("Created histogram directory: ", hist_folder)
-  }
-  # spatial plots go in spatial_plot_dir (all figures saved there with sample name in file)
+  ensure_dir(hist_folder)
+  
+  message("Created histogram directory: ", hist_folder)
   
   #############################
   # Run PCA on full dataset (using Spatial.008um assay)
   #############################
+  message("Starting PCA on full dataset")
+
   DefaultAssay(prostate_ST) <- "Spatial.008um"
   prostate_ST <- RunPCA(
     object = prostate_ST,
@@ -138,10 +179,12 @@ for (file in file_list) {
     reduction.name = "pca.prostate.full",
     verbose = TRUE
   )
-  
+  message("PCA of full ST object complete...")
   #############################
   # Sketching (subsample using LeverageScore)
   #############################
+  message("Starting sketch processing...")
+ 
   DefaultAssay(prostate_ST) <- "Spatial.008um"
   prostate_ST <- SketchData(
     object = prostate_ST,
@@ -165,16 +208,23 @@ for (file in file_list) {
                          dims = 1:15,
                          verbose = TRUE)
   
+  message("Sketch processing complete...")
   #############################
   # Create Query Object and Run RCTD for this sample
   #############################
+
   counts_hd <- prostate_ST[["sketch"]]$counts
   prostate_cells_hd <- colnames(prostate_ST[["sketch"]])
   coords <- GetTissueCoordinates(prostate_ST)[prostate_cells_hd, 1:2]
   
   query <- SpatialRNA(coords, counts_hd, colSums(counts_hd))
   
-  RCTD <- create.RCTD(query, reference, max_cores = 10, UMI_min = 100)
+  RCTD <- create.RCTD(query, reference, max_cores = 32, UMI_min = 100,
+                        gene_cutoff = gene_cutoff
+                        fc_cutoff = fc_cutoff
+                        CONFIDENCE_THRESHOLD = confidence_threshold
+                        DOUBLET_THRESHOLD = doublet_threshold
+              )
   RCTD <- run.RCTD(RCTD, doublet_mode = "doublet")
   
   # Add RCTD results to metadata
@@ -261,14 +311,9 @@ for (file in file_list) {
     cols = my_colors
   )
   
-  spatial_file <- file.path(spatial_plot_dir, paste0(sample_name, "_spatial_celltype.png"))
+  spatial_file <- file.path(spatial_plot_dir, paste0(sample_name, ".png"))
   ggsave(filename = spatial_file, plot = p1_strict, width = 8, height = 6, dpi = 500)
   
-  #############################
-  # Save the processed RDS object for this sample
-  #############################
-  rds_file <- file.path(labeled_rds_dir, paste0(sample_name, ".rds"))
-  saveRDS(prostate_ST, file = rds_file)
   
   message("Finished processing sample: ", sample_name)
   
@@ -288,10 +333,10 @@ for (file in file_list) {
 #############################
 # After the loop: Save the aggregated data frames with date-time stamps
 #############################
-current_time <- format(Sys.time(), "%Y%m%d_%H%M%S")
-cell_counts_file <- file.path(labeled_rds_dir, paste0("Cell_counts_", current_time, ".csv"))
-cutoff_file <- file.path(labeled_rds_dir, paste0("myccap_cutoff_", current_time, ".csv"))
+cell_counts_file <- file.path(test_dir, paste0("Cell_counts_", test_name, ".csv"))
+cutoff_file <- file.path(test_dir, paste0("myccap_cutoff_", test_name, ".csv"))
 
+#  TODO: Make sure the right locations are being used here
 write.csv(label_df, file = cell_counts_file, row.names = TRUE)
 write.csv(cutoff_df, file = cutoff_file, row.names = FALSE)
 
