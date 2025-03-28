@@ -6,9 +6,9 @@
 
 # Load required libraries
 library(Seurat)
-library(devtools)
 library(spacexr)
 library(ggplot2)
+library(pryr)
 set.seed(1337)
 
 ################################
@@ -46,6 +46,59 @@ param_lines <- c(
 )
 
 ################################
+# Setting up functions
+################################
+
+# Show memory output in a human readable format
+pretty_mem <- function(bytes) {
+  units <- c("B", "KB", "MB", "GB", "TB")
+  power <- ifelse(bytes > 0, floor(log(bytes, 1024)), 0)
+  power <- min(power, length(units) - 1)
+  converted <- bytes / (1024^power)
+  sprintf("%.2f %s", converted, units[power + 1])
+}
+
+log_block <- function(text) {
+  msg <- paste(rep("=", 88), collapse = "")
+  message(msg)
+  message("==> ", text)
+  message(msg)
+}
+
+log_memory_and_cpu <- function(label = "", interval_sec = 60, repetitions = 10) {
+  pid <- Sys.getpid()
+  for (i in seq_len(repetitions)) {
+    timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+
+    mem_r <- pryr::mem_used()
+    mem_r_pretty <- pretty_mem(mem_r)
+
+    ps_output <- tryCatch({
+      system(paste("ps -p", pid, "-o %cpu,%mem,rss,vsz", "--no-headers"), intern = TRUE)
+    }, error = function(e) {
+      return("ps failed")
+    })
+
+    msg <- sprintf("[%s] [%s] pryr::mem_used = %s | system: %s",
+                   timestamp, label, mem_r_pretty, ps_output)
+
+    log_block(msg)
+
+    Sys.sleep(interval_sec)
+  }
+}
+
+
+
+# Function to create directories
+ensure_dir <- function(dir_path){
+  if (!dir.exists(dir_path)){
+    dir.create(dir_path, recursive = TRUE)
+  }
+}
+
+
+################################
 # Setting up directories
 ################################
 # Major folder forl all the saved
@@ -56,12 +109,7 @@ test_dir <- file.path(results_dir, test_name)
 spatial_plot_dir <- file.path(test_dir, "spatial_plots")
 hist_base_dir <- file.path(test_dir, "confidence_histograms")
 
-# Function to create directories
-ensure_dir <- function(dir_path){
-  if (!dir.exists(dir_path)){
-    dir.create(dir_path, recursive = TRUE)
-  }
-}
+
 
 # Create directories
 ensure_dir(test_dir)
@@ -69,7 +117,7 @@ ensure_dir(spatial_plot_dir)
 ensure_dir(hist_base_dir)
 
 # saving parameters used for this test
-writeLines(param_lines, paste0(test_dir, "rctd_params", ".txt"))
+writeLines(param_lines, file.path(test_dir, "rctd_params.txt"))
 
 
 ################################
@@ -125,8 +173,8 @@ my_colors <- my_colors[my_labels]
 # Creating Reference
 ################################
 # Load the scRNA-seq reference object once
-# TODO: move this to the where all the reference building is happening
-MyC_CaP_ref <- readRDS("/home/janzules/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/Fully_annotated_condensed.rd")
+
+MyC_CaP_ref <- readRDS("/home/janzules/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/Fully_annotated_condensed.rds")
 # Prepare the reference object (only once, outside loop)
 Idents(MyC_CaP_ref) <- "celltype"
 # Remove unwanted cell types (e.g., "Resident Macrophages")
@@ -142,8 +190,7 @@ cluster <- droplevels(cluster)
 reference <- Reference(counts_ref, cluster, nUMI)
 
 # Get list of RDS files to process
-file_list <- list.files(path = "~/Roselab/Spatial/dietary_project/data/Rogelio/Analysis_final", 
-                        pattern = "\\.rds$", full.names = TRUE)
+file_list <- readLines("/home/janzules/Spatial/dietary_project/code/addresses/Myc_Cap_cells.txt")
 
 #############################
 # MAIN LOOP: Process each RDS file
@@ -153,8 +200,14 @@ for (file in file_list) {
   
   # Extract sample name from file path
   sample_name <- gsub("\\.rds$", "", basename(file))
-  message("Processing file: ", basename(file), " -> Sample name: ", sample_name)
   
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("Processing file: ", basename(file), " -> Sample name: ", sample_name)
+  message("Current memory usage : ", pretty_mem(pryr::mem_used()))
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+
   # Load the Seurat object for this sample
   prostate_ST <- readRDS(file)
   prostate_ST <- subset(prostate_ST, subset = nCount_Spatial.008um >= 100)
@@ -165,8 +218,13 @@ for (file in file_list) {
   hist_folder <- file.path(hist_base_dir, sample_name)
   ensure_dir(hist_folder)
   
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   message("Created histogram directory: ", hist_folder)
-  
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+
+
   #############################
   # Run PCA on full dataset (using Spatial.008um assay)
   #############################
@@ -179,11 +237,24 @@ for (file in file_list) {
     reduction.name = "pca.prostate.full",
     verbose = TRUE
   )
+
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   message("PCA of full ST object complete...")
+  message("Current memory usage : ", pretty_mem(pryr::mem_used()))
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+
+
+
   #############################
   # Sketching (subsample using LeverageScore)
   #############################
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   message("Starting sketch processing...")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
  
   DefaultAssay(prostate_ST) <- "Spatial.008um"
   prostate_ST <- SketchData(
@@ -207,8 +278,13 @@ for (file in file_list) {
                          return.model = TRUE,
                          dims = 1:15,
                          verbose = TRUE)
-  
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   message("Sketch processing complete...")
+  message("Current memory usage : ", pretty_mem(pryr::mem_used()))
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+
   #############################
   # Create Query Object and Run RCTD for this sample
   #############################
@@ -219,21 +295,66 @@ for (file in file_list) {
   
   query <- SpatialRNA(coords, counts_hd, colSums(counts_hd))
   
-  RCTD <- create.RCTD(query, reference, max_cores = 32, UMI_min = 100,
-                        gene_cutoff = gene_cutoff
-                        fc_cutoff = fc_cutoff
-                        CONFIDENCE_THRESHOLD = confidence_threshold
-                        DOUBLET_THRESHOLD = doublet_threshold
-              )
-  RCTD <- run.RCTD(RCTD, doublet_mode = "doublet")
+  log_memory_and_cpu(label = paste("RCTD:", sample_name), interval_sec = 60, repetitions = 60)
+
+  RCTD <- tryCatch({
+    message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    message("Creating RCTD object...")
+    message("Current memory usage : ", pretty_mem(pryr::mem_used()))
+    message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+
+
+    tmp <- create.RCTD(query, reference, max_cores = 8, UMI_min = 100,
+                       gene_cutoff = gene_cutoff,
+                       fc_cutoff = fc_cutoff,
+                       CONFIDENCE_THRESHOLD = confidence_threshold,
+                       DOUBLET_THRESHOLD = doublet_threshold)
+
+    message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    message("Running RCTD...")
+    message("Current memory usage : ", pretty_mem(pryr::mem_used()))
+    message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+
+    run.RCTD(tmp, doublet_mode = "doublet")
+
+  }, error = function(e) {
+    message("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    message("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    message("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    message("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    message("Error in RCTD processing for sample ", sample_name, ": ", e$message)
+    message("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    message("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    message("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    message("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+
+    return(NULL)
+  })
   
+  # Skip processing this sample if RCTD is NULL due to error
+  if (is.null(RCTD)) {
+    message("Skipping sample ", sample_name, " due to error.")
+    next
+  }
+
+  
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("RCTD run complete!")
+  message("Current memory usage : ", pretty_mem(pryr::mem_used()))
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+
   # Add RCTD results to metadata
   prostate_ST <- AddMetaData(prostate_ST, metadata = RCTD@results$results_df)
   
   #############################
   # Project RCTD labels from the sketched cells to the full dataset
   #############################
-  message("Query complete, projecting...")
   
   prostate_ST$first_type <- as.character(prostate_ST$first_type)
   prostate_ST$first_type[is.na(prostate_ST$first_type)] <- "Unknown"
@@ -318,7 +439,9 @@ for (file in file_list) {
   message("Finished processing sample: ", sample_name)
   
   # Properly remove the Seurat object and clean up memory
-  cat("Memory before clearing object:", pryr::mem_used(), "\n")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("Memory before clearing object: ", pretty_mem(pryr::mem_used()))
   prostate_ST@reductions <- list()
   prostate_ST@assays <- list()
   prostate_ST@images <- list()
@@ -326,19 +449,25 @@ for (file in file_list) {
   prostate_ST@graphs <- list()
   prostate_ST@neighbors <- list()
   gc(full = TRUE)
-  cat("Memory after clearing object:", pryr::mem_used(), "\n")
+  rm(prostate_ST)
+  message("Memory after clearing object: ", pretty_mem(pryr::mem_used()))
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 }
 
 
 #############################
-# After the loop: Save the aggregated data frames with date-time stamps
+# After the loop: Save the aggregated data frames with
 #############################
 cell_counts_file <- file.path(test_dir, paste0("Cell_counts_", test_name, ".csv"))
 cutoff_file <- file.path(test_dir, paste0("myccap_cutoff_", test_name, ".csv"))
 
-#  TODO: Make sure the right locations are being used here
 write.csv(label_df, file = cell_counts_file, row.names = TRUE)
 write.csv(cutoff_df, file = cutoff_file, row.names = FALSE)
-
+message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+message("Wow the loop completed..")
 message("Saved aggregated cell counts to: ", cell_counts_file)
 message("Saved MyC-CaP cutoff values to: ", cutoff_file)
+message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
