@@ -79,8 +79,8 @@ log_memory_and_cpu <- function(label = "", interval_sec = 60, repetitions = 10) 
       return("ps failed")
     })
 
-    msg <- sprintf("[%s] [%s] pryr::mem_used = %s | system: %s",
-                   timestamp, label, mem_r_pretty, ps_output)
+    msg <- sprintf("[%s] [%s] pryr::mem_used = %s | %s |system: %s",
+                   timestamp, label, mem_r_pretty, mem_r, ps_output)
 
     log_block(msg)
 
@@ -295,7 +295,7 @@ for (file in file_list) {
   
   query <- SpatialRNA(coords, counts_hd, colSums(counts_hd))
   
-  log_memory_and_cpu(label = paste("RCTD:", sample_name), interval_sec = 60, repetitions = 120)
+  log_memory_and_cpu(label = paste("RCTD:", sample_name), interval_sec = 120, repetitions = 240)
 
   RCTD <- tryCatch({
     message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")

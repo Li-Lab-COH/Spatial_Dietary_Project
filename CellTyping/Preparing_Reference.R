@@ -604,5 +604,14 @@ seurat_obj_test <- readRDS("~/1Work/RoseLab/Spatial/Dietary_Project/data/Unal_20
 table(seurat_obj_test$celltype)
 
 
+# FINAL FIX
+ref_data <- readRDS("~/Roselab/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/Fully_annotated_unal_reference.rds")
+ref_data$celltype <- droplevels(ref_data$celltype)
+# Replace spaces and hyphens with underscores in celltype names
+levels(ref_data$celltype) <- gsub("[ -]", "_", levels(ref_data$celltype))
+
+table(ref_data$celltype)
+
+saveRDS(ref_data, "~/Roselab/Spatial/dietary_project/data/cell_typing_reference/Unal_2024_Myc_CaP/Fully_annotated_unal_reference.rds")
 
 
