@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=50G
-#SBATCH --time=24:00:00
+#SBATCH --time=36:00:00
 #SBATCH --output=/home/janzules/Spatial/dietary_project/slurmOutput/RCTD_parameter_tests/RCTD_testing_%A_%a.out
 #SBATCH --error=/home/janzules/Spatial/dietary_project/slurmOutput/RCTD_parameter_tests/RCTD_testing_%A_%a.err
 

@@ -295,7 +295,7 @@ for (file in file_list) {
   
   query <- SpatialRNA(coords, counts_hd, colSums(counts_hd))
   
-  log_memory_and_cpu(label = paste("RCTD:", sample_name), interval_sec = 60, repetitions = 60)
+  log_memory_and_cpu(label = paste("RCTD:", sample_name), interval_sec = 60, repetitions = 120)
 
   RCTD <- tryCatch({
     message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
