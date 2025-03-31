@@ -53,22 +53,6 @@ log_block <- function(...) {
   message(msg)
 }
 
-# log_memory_and_cpu <- function(label = "", interval_sec = 60, repetitions = 10) {
-#   pid <- Sys.getpid()
-#   for (i in seq_len(repetitions)) {
-#     timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
-#     mem_r <- pryr::mem_used()
-#     mem_r_pretty <- pretty_mem(mem_r)
-
-#     ps_output <- system(paste("ps -p", pid, "-o %cpu,%mem,rss,vsz", "--no-headers"), intern = TRUE)
-
-#     msg <- sprintf("[%s] [%s] pryr::mem_used = %s | %s | system: %s",
-#                    timestamp, label, mem_r_pretty, mem_r, ps_output)
-#     log_block(msg)
-#     Sys.sleep(interval_sec)
-#   }
-# }
-
 
 ensure_dir <- function(dir_path) {
   if (!dir.exists(dir_path)) {
@@ -219,7 +203,7 @@ message("Created histogram directory: ", hist_folder)
 #############################
 # Run PCA on full dataset (using Spatial.008um assay)
 #############################
-log_block("Starting PCA on full dataset")
+log_block("Processing full dataset")
 DefaultAssay(prostate_ST) <- "Spatial.008um"
 
 # Scale the data — required before PCA
@@ -234,7 +218,15 @@ prostate_ST <- RunPCA(
   verbose = TRUE
 )
 
-log_block("PCA complete. Current memory usage: ", pretty_mem(pryr::mem_used()))
+log_block("Completed PCA. Current memory usage: ", pretty_mem(pryr::mem_used()))
+
+prostate_ST <- FindNeighbors(prostate_ST, assay = "Spatial.008um",
+              reduction = "pca.prostate.full", dims = 1:15)
+
+log_block("Completed Find Neighbors. Current memory usage: ", pretty_mem(pryr::mem_used()))
+
+prostate_ST <- 
+
 
 #############################
 # Sketching (subsample using LeverageScore)
