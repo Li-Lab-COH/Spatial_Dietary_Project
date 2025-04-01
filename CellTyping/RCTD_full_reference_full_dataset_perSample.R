@@ -232,7 +232,9 @@ log_block("Completed Find Neighbors. Current memory usage: ", pretty_mem(pryr::m
 counts_hd <- prostate_ST[["Spatial.008um"]]$counts
 prostate_cells_hd <- colnames(prostate_ST[["Spatial.008um"]])
 
-coords <- GetTissueCoordinates(prostate_ST)[prostate_cells_hd, 1:2]
+coords <- GetTissueCoordinates(prostate_ST)
+coords <- coords[intersect(rownames(coords), prostate_cells_hd), 1:2]
+
 query <- SpatialRNA(coords, counts_hd, colSums(counts_hd))
 
 # log_memory_and_cpu(label = paste("RCTD:", sample_name), interval_sec = 120, repetitions = 240)
@@ -285,12 +287,11 @@ saveRDS(prostate_ST, file = file.path("/home/janzules/Spatial/dietary_project/RC
 # Aggregate Cell Count Data for this sample
 #############################
 label_counts <- table(prostate_ST$myccap_strict)
-label_vector <- as.numeric(label_counts[expected_cell_types])
+label_vector <- as.numeric(label_counts[match(expected_cell_types, names(label_counts))])
 names(label_vector) <- expected_cell_types
 label_vector[is.na(label_vector)] <- 0
 label_df[[sample_name]] <- label_vector
 
-saveRDS(prostate_ST, file = file.path("/home/janzules/Spatial/dietary_project/RCTD_annotated_n_PCA_full", paste0(sample_name, "_annotated.rds")))
 
 #############################
 # Generate and Save Histograms for QC (for each cell type except uncertain_MyC-CaP)
