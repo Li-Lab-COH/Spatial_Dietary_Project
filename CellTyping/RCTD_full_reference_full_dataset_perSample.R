@@ -280,7 +280,7 @@ print(table(prostate_ST$myccap_strict))
 #############################
 # Saving annotated object
 #############################
-saveRDS(prostate_ST, file = file.path("/home/janzules/Spatial/dietary_project/RCTD_annotated_n_PCA_full", paste0(sample_name, "RCTD_annotated.rds")))
+saveRDS(prostate_ST, file = file.path("/home/janzules/Spatial/dietary_project/data/RCTD_annotated_n_PCA_full", paste0(sample_name, "RCTD_annotated.rds")))
 
 
 #############################
