@@ -27,11 +27,14 @@ set.seed(1337)
 # Setting up test parameters - user defined
 ############################################
 
-test_name <- "test_2"
+test_name <- "test_3"
 gene_cutoff <- 0.000125
 fc_cutoff <- 0.5
 confidence_threshold <- 5
 doublet_threshold <- 20
+cores <- 14
+min_cells <- 24
+
 
 ############################################
 # Setting up functions
@@ -237,16 +240,14 @@ coords <- coords[intersect(rownames(coords), prostate_cells_hd), 1:2]
 
 query <- SpatialRNA(coords, counts_hd, colSums(counts_hd))
 
-# log_memory_and_cpu(label = paste("RCTD:", sample_name), interval_sec = 120, repetitions = 240)
-
 log_block("Creating RCTD object... Current memory usage: ", pretty_mem(pryr::mem_used()))
 
-RCTD <- create.RCTD(query, reference, max_cores = 12, UMI_min = 100,
+RCTD <- create.RCTD(query, reference, max_cores = cores, UMI_min = 100,
                     gene_cutoff = gene_cutoff,
                     fc_cutoff = fc_cutoff,
                     CONFIDENCE_THRESHOLD = confidence_threshold,
                     DOUBLET_THRESHOLD = doublet_threshold,
-                    CELL_MIN_INSTANCE = 24)
+                    CELL_MIN_INSTANCE = min_cells)
 
 log_block("Running RCTD... Current memory usage: ", pretty_mem(pryr::mem_used()))
 RCTD <- run.RCTD(RCTD, doublet_mode = "doublet")
@@ -254,7 +255,7 @@ log_block("RCTD run complete! Current memory usage: ", pretty_mem(pryr::mem_used
 
 
 #############################
-# Project RCTD Labels from the Sketched Cells to the Full Dataset
+# Adding results
 #############################
 
 # Add RCTD results to metadata
@@ -266,13 +267,13 @@ prostate_ST$first_type[is.na(prostate_ST$first_type)] <- "Unknown"
 #############################
 # Labeling Uncertain MyC-CaP Bins Based on Confidence for this sample
 #############################
-myccap_scores <- prostate_ST$full_first_type.score[prostate_ST$full_first_type == "MyC_CaP"]
+myccap_scores <- prostate_ST$first_type.score[prostate_ST$first_type == "MyC_CaP"]
 myccap_cutoff <- quantile(myccap_scores, probs = 0.15, na.rm = TRUE)
 log_block("MyC-CaP cutoff for ", sample_name, ": ", myccap_cutoff)
 cutoff_df <- rbind(cutoff_df, data.frame(sample = sample_name, myccap_cutoff = myccap_cutoff, stringsAsFactors = FALSE))
 prostate_ST$myccap_strict <- as.character(prostate_ST$first_type)
 prostate_ST$myccap_strict[
-  prostate_ST$first_type == "MyC_CaP" & prostate_ST$full_first_type.score < myccap_cutoff
+  prostate_ST$first_type == "MyC_CaP" & prostate_ST$first_type.score < myccap_cutoff
 ] <- "uncertain_MyC_CaP"
 print(table(prostate_ST$myccap_strict))
 
@@ -296,14 +297,14 @@ label_df[[sample_name]] <- label_vector
 #############################
 # Generate and Save Histograms for QC (for each cell type except uncertain_MyC-CaP)
 #############################
-cell_types_hist <- setdiff(unique(prostate_ST$full_first_type), "uncertain_MyC_CaP")
+cell_types_hist <- setdiff(unique(prostate_ST$first_type), "uncertain_MyC_CaP")
 for (ct in cell_types_hist) {
-  scores <- prostate_ST$full_first_type.score[prostate_ST$full_first_type == ct]
+  scores <- prostate_ST$first_type.score[prostate_ST$first_type == ct]
   file_name <- paste0(gsub("[^A-Za-z0-9_]", "_", ct), ".png")
   file_path <- file.path(hist_folder, file_name)
   png(filename = file_path, width = 800, height = 600, res = 150)
   hist(scores, main = paste("Confidence Scores for", ct),
-       xlab = "full_first_type.score", breaks = 50, col = "skyblue", border = "white")
+       xlab = "first_type.score", breaks = 50, col = "skyblue", border = "white")
   dev.off()
 }
 
