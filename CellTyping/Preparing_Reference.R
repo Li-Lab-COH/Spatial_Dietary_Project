@@ -440,9 +440,6 @@ saveRDS(tumor_reference_clean, "~/Roselab/Spatial/dietary_project/data/cell_typi
 
 
 
-
-
-
 #------------------------------ Older stuff -----------------------------------
 
 VlnPlot(non_tumor_obj, features = c("Xcr1", "Flt3", "Timd4"), group.by = "seurat_clusters", pt.size = 0)
