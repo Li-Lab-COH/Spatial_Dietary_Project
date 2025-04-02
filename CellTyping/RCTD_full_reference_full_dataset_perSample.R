@@ -101,7 +101,7 @@ writeLines(param_lines, file.path(test_dir, "rctd_params.txt"))
 # Define expected cell types (using underscores) with the proper commas!
 expected_cell_types <- c(
   "MyC_CaP",
-  "uncertain_MyC_CaP",
+  # "uncertain_MyC_CaP",
   "Dendritic_Cells",
   "ISG_high_Macrophages",
   "Proliferating_Macrophages",
@@ -123,7 +123,7 @@ cutoff_df <- data.frame(sample = character(), myccap_cutoff = numeric(), strings
 # Prepare color palette and label order for final spatial plotting using "myccap_strict"
 my_labels <- c(
   "MyC_CaP",
-  "uncertain_MyC_CaP",
+  # "uncertain_MyC_CaP",
   "Dendritic_Cells",
   "ISG_high_Macrophages",
   "Proliferating_Macrophages",
@@ -141,7 +141,7 @@ my_labels <- c(
 
 my_colors <- c(
   `MyC_CaP`                 = "black",
-  `uncertain_MyC_CaP`       = "grey80",
+  # `uncertain_MyC_CaP`       = "grey80",
   Dendritic_Cells           = "steelblue1",
   ISG_high_Macrophages      = "lightskyblue3",
   Proliferating_Macrophages = "dodgerblue3",
@@ -199,9 +199,9 @@ prostate_ST <- subset(
 #############################
 # Setup output directories for this sample
 #############################
-hist_folder <- file.path(hist_base_dir, sample_name)
-ensure_dir(hist_folder)
-message("Created histogram directory: ", hist_folder)
+# hist_folder <- file.path(hist_base_dir, sample_name)
+# ensure_dir(hist_folder)
+# message("Created histogram directory: ", hist_folder)
 
 #############################
 # Run PCA on full dataset (using Spatial.008um assay)
@@ -260,27 +260,32 @@ log_block("RCTD run complete! Current memory usage: ", pretty_mem(pryr::mem_used
 
 # Add RCTD results to metadata
 prostate_ST <- AddMetaData(prostate_ST, metadata = RCTD@results$results_df)
+log_block("Added metadata from RCTD successfully")
 prostate_ST$first_type <- as.character(prostate_ST$first_type)
 prostate_ST$first_type[is.na(prostate_ST$first_type)] <- "Unknown"
 
-
+log_block("Filled unknowns successfully")
 #############################
 # Labeling Uncertain MyC-CaP Bins Based on Confidence for this sample
 #############################
-myccap_scores <- prostate_ST$first_type.score[prostate_ST$first_type == "MyC_CaP"]
-myccap_cutoff <- quantile(myccap_scores, probs = 0.15, na.rm = TRUE)
-log_block("MyC-CaP cutoff for ", sample_name, ": ", myccap_cutoff)
-cutoff_df <- rbind(cutoff_df, data.frame(sample = sample_name, myccap_cutoff = myccap_cutoff, stringsAsFactors = FALSE))
-prostate_ST$myccap_strict <- as.character(prostate_ST$first_type)
-prostate_ST$myccap_strict[
-  prostate_ST$first_type == "MyC_CaP" & prostate_ST$first_type.score < myccap_cutoff
-] <- "uncertain_MyC_CaP"
-print(table(prostate_ST$myccap_strict))
+
+# TODO: The histograms need to be generated again in the futre, idk how to handle the weighs
+# for more info go here: https://github.com/dmcable/spacexr/tree/master/documentation
+# myccap_scores <- prostate_ST$first_type.score[prostate_ST$first_type == "MyC_CaP"]
+# myccap_cutoff <- quantile(myccap_scores, probs = 0.15, na.rm = TRUE)
+# log_block("MyC-CaP cutoff for ", sample_name, ": ", myccap_cutoff)
+# cutoff_df <- rbind(cutoff_df, data.frame(sample = sample_name, myccap_cutoff = myccap_cutoff, stringsAsFactors = FALSE))
+# prostate_ST$myccap_strict <- as.character(prostate_ST$first_type)
+# prostate_ST$myccap_strict[
+#   prostate_ST$first_type == "MyC_CaP" & prostate_ST$first_type.score < myccap_cutoff
+# ] <- "uncertain_MyC_CaP"
+# print(table(prostate_ST$myccap_strict))
 
 
 #############################
 # Saving annotated object
 #############################
+
 saveRDS(prostate_ST, file = file.path("/home/janzules/Spatial/dietary_project/data/RCTD_annotated_n_PCA_full", paste0(sample_name, "RCTD_annotated.rds")))
 
 
@@ -297,16 +302,16 @@ label_df[[sample_name]] <- label_vector
 #############################
 # Generate and Save Histograms for QC (for each cell type except uncertain_MyC-CaP)
 #############################
-cell_types_hist <- setdiff(unique(prostate_ST$first_type), "uncertain_MyC_CaP")
-for (ct in cell_types_hist) {
-  scores <- prostate_ST$first_type.score[prostate_ST$first_type == ct]
-  file_name <- paste0(gsub("[^A-Za-z0-9_]", "_", ct), ".png")
-  file_path <- file.path(hist_folder, file_name)
-  png(filename = file_path, width = 800, height = 600, res = 150)
-  hist(scores, main = paste("Confidence Scores for", ct),
-       xlab = "first_type.score", breaks = 50, col = "skyblue", border = "white")
-  dev.off()
-}
+# cell_types_hist <- setdiff(unique(prostate_ST$first_type), "uncertain_MyC_CaP")
+# for (ct in cell_types_hist) {
+#   scores <- prostate_ST$first_type.score[prostate_ST$first_type == ct]
+#   file_name <- paste0(gsub("[^A-Za-z0-9_]", "_", ct), ".png")
+#   file_path <- file.path(hist_folder, file_name)
+#   png(filename = file_path, width = 800, height = 600, res = 150)
+#   hist(scores, main = paste("Confidence Scores for", ct),
+#        xlab = "first_type.score", breaks = 50, col = "skyblue", border = "white")
+#   dev.off()
+# }
 
 #############################
 # Generate High-Resolution Spatial Plot using myccap_strict Labels
