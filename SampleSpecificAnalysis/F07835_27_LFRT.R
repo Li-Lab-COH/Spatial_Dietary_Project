@@ -59,7 +59,7 @@ prostate_ST <- RunPCA(
 #----------------------- Define clustering parameters -----------------------
 resolutions <- c(0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2)
 k_params <- c(10, 20, 30)
-
+# Completed parameter combination: k = 30 resolution = 1.2
 #----------------------- Loop over parameter combinations -----------------------
 for (k in k_params) {
   for (res in resolutions) {
