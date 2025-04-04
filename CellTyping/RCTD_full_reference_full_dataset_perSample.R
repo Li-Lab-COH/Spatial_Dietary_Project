@@ -292,7 +292,7 @@ saveRDS(prostate_ST, file = file.path("/home/janzules/Spatial/dietary_project/da
 #############################
 # Aggregate Cell Count Data for this sample
 #############################
-label_counts <- table(prostate_ST$myccap_strict)
+label_counts <- table(prostate_ST$first_type)
 label_vector <- as.numeric(label_counts[match(expected_cell_types, names(label_counts))])
 names(label_vector) <- expected_cell_types
 label_vector[is.na(label_vector)] <- 0
@@ -316,10 +316,10 @@ label_df[[sample_name]] <- label_vector
 #############################
 # Generate High-Resolution Spatial Plot using myccap_strict Labels
 #############################
-prostate_ST$myccap_strict <- factor(prostate_ST$myccap_strict, levels = my_labels)
+prostate_ST$first_type <- factor(prostate_ST$first_type, levels = my_labels)
 p1_strict <- SpatialDimPlot(
   object = prostate_ST,
-  group.by = "myccap_strict",
+  group.by = "first_type",
   label = FALSE,
   repel = TRUE,
   image.alpha = 0.9,
