@@ -11,7 +11,7 @@ library(openxlsx)
 
 # Define the function
 runSpatialAnnotation <- function(seurat_obj, output_folder, 
-                                 k_params = c(10, 20, 30), 
+                                 k_params = c( 20, 30), 
                                  resolutions = c(0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2)) {
   # Create output folder if it doesn't exist
   ensure_dir <- function(dir_path) {
