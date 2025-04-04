@@ -220,11 +220,22 @@ prostate_ST <- RunPCA(
   reduction.name = "pca.prostate.full",
   verbose = TRUE
 )
+prostate_ST <- FindNeighbors(prostate_ST, 
+                             dims = 1:15, 
+                             k.param = 20, 
+                             prune.SNN = 1/15,
+                             reduction = "pca.prostate.full")
 
-log_block("Completed PCA. Current memory usage: ", pretty_mem(pryr::mem_used()))
+prostate_ST <- FindClusters(prostate_ST, 
+                            resolution = 0.8)
 
-prostate_ST <- FindNeighbors(prostate_ST, assay = "Spatial.008um",
-              reduction = "pca.prostate.full", dims = 1:15)
+prostate_ST <- RunUMAP(prostate_ST,
+                       dims = 1:15,
+                       reduction = "pca.prostate.full",
+                       verbose = FALSE
+                       )
+
+log_block("Completed clustering Current memory usage: ", pretty_mem(pryr::mem_used()))
 
 log_block("Completed Find Neighbors. Current memory usage: ", pretty_mem(pryr::mem_used()))
 
