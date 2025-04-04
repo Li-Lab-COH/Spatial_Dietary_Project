@@ -289,8 +289,8 @@ object_loc            <- "/home/janzules/Spatial/dietary_project/data/RCTD_annot
 sample_object_loc     <- file.path(object_loc, sample_name)
 ensure_dir(sample_object_loc)
 
-saveRDS(prostate_ST, file = file.path(object_loc, paste0(sample_name, "_RCTD_annotated.rds")))
-saveRDS(RCTD, file = file.path(object_loc, paste0(sample_name, "_RCTD_object.rds")))
+saveRDS(prostate_ST, file = file.path(sample_object_loc, paste0(sample_name, "_RCTD_annotated.rds")))
+saveRDS(RCTD, file = file.path(sample_object_loc, paste0(sample_name, "_RCTD_object.rds")))
 
 #############################
 # Aggregate Cell Count Data for this sample
