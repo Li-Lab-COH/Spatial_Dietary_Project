@@ -3,7 +3,7 @@ library(rstudioapi)
 setwd(dirname(getActiveDocumentContext()$path))
 
 source("../CustomFunctions/Annotating_subclusters.R")
-
+outdir <- "../../Results/RnJ/Updating_clustering04.04.25/Figures/"
 prostate_ST <- readRDS("~/1Work/RoseLab/Spatial/dietary_droject/data/RCTD_annotated_n_PCA_full/F07835_27_LFRTRCTD_annotated.rds")
 
 
@@ -90,19 +90,218 @@ prostate_ST$level_1 <- level_1_vector
 
 Idents(prostate_ST) <- "level_2"
 
-custom_colors <- c(
+custom_colors_level_2 <- c(
   "MyC_CaP" = "grey93",
-  "Epithelial" = "#1f78b4",       # blue
+  "Epithelial" = "grey50",       # blue
   "Macrophages" = "#33a02c",     # green
   "Dendritic_Cells" = "#ff7f00", # orange
   "NK_Cells" = "#20b2aa",        # purple
   "T_Cells" = "#e31a1c"          # red
 )
 
-DimPlot(
+level_2_umap <- DimPlot(
   prostate_ST,
   reduction = "umap",
-  # label = TRUE,
-  cols = custom_colors
+  cols = custom_colors_level_2
 )
 
+Idents(prostate_ST) <- "seurat_clusters"
+
+cluster_umap <- DimPlot(
+  prostate_ST,
+  reduction = "umap",
+  label = TRUE
+)
+
+Idents(prostate_ST) <- "level_1"
+# unique(Idents(prostate_ST))
+
+custom_colors_level_1 <- c(
+  "MyC_CaP" = "grey93",
+  "Epithelial" = "grey50",       # blue
+  "Immune_Cells" = "#33a02c"     # green
+)
+
+
+level_1_umap <- DimPlot(
+  prostate_ST,
+  reduction = "umap",
+  cols = custom_colors_level_1
+)
+
+level_2_umap | cluster_umap | level_1_umap
+combined_umap <- level_2_umap | cluster_umap | level_1_umap
+
+ggsave(
+  filename = file.path(outdir, "UMAP_level1_level2_clusters.png"),
+  plot = combined_umap,
+  width = 15, height = 6, units = "in",
+  dpi = 300
+)
+
+
+#---------------------------- Immune plots ------------------------------------
+library(Seurat)
+library(patchwork)
+
+features_to_plot <- c("Cd3e", "Cd3d", "Cd3g", "Cd4", "Cd8a", "Foxp3")
+# features_to_plot <- c("Adgre1", "Cd68", "Csf1r", "Cd14", "Cd163")
+# For storing both types of plots
+marker_plots <- list()
+ident_plots <- list()
+
+for (gene in features_to_plot) {
+  
+  umap_coords <- Embeddings(prostate_ST, reduction = "umap")
+  xlims <- range(umap_coords[, 1])
+  ylims <- range(umap_coords[, 2])
+  
+  
+  # Get expression for this gene
+  expr_vals <- GetAssayData(prostate_ST, assay = "Spatial.008um", layer = "data")[gene, ]
+  nonzero_cells <- names(expr_vals[expr_vals > 0])
+  
+  if (length(nonzero_cells) == 0) {
+    message("No non-zero cells for ", gene)
+    next
+  }
+  
+  p_marker <- FeaturePlot(
+    subset(prostate_ST, cells = nonzero_cells),
+    features = gene,
+    cols = c("grey95", "blue"),
+    order = TRUE,
+    min.cutoff = 0
+  ) +
+    xlim(xlims) +
+    ylim(ylims) +
+    ggtitle(gene)
+  
+  p_ident <- DimPlot(
+    subset(prostate_ST, cells = nonzero_cells),
+    group.by = "level_2",
+    label = FALSE,
+    pt.size = 1
+  ) +
+    xlim(xlims) +
+    ylim(ylims) +
+    ggtitle(paste(gene, "- level_2"))
+  
+  
+  # Store them
+  marker_plots[[gene]] <- p_marker
+  ident_plots[[gene]] <- p_ident
+}
+
+# # Combine into a grid: for each gene, show marker + level_2 plot side-by-side
+# combined_plots <- mapply(function(m, i) m | i, marker_plots, ident_plots, SIMPLIFY = FALSE)
+# wrap_plots(combined_plots, ncol = 1)
+
+feature_plot_markers <- patchwork::wrap_plots(marker_plots, ncol = 3)
+feature_plot_idents <- patchwork::wrap_plots(ident_plots, ncol = 3)
+
+
+
+
+# ggsave(
+#   filename = file.path(outdir, "Macrophage_markers.png"),
+#   plot = feature_plot_markers,
+#   width = 15, height = 15, units = "in",
+#   dpi = 300
+# )
+# 
+# ggsave(
+#   filename = file.path(outdir, "Macrophage_idents.png"),
+#   plot = feature_plot_idents,
+#   width = 15, height = 15, units = "in",
+#   dpi = 300
+# )
+
+
+ggsave(
+  filename = file.path(outdir, "Tcell_markers.png"),
+  plot = feature_plot_markers,
+  width = 15, height = 15, units = "in",
+  dpi = 300
+)
+
+ggsave(
+  filename = file.path(outdir, "Tcell_idents.png"),
+  plot = feature_plot_idents,
+  width = 15, height = 15, units = "in",
+  dpi = 300
+)
+
+
+
+
+
+
+
+
+# T cells
+FeaturePlot(prostate_ST, features = c("Cd3e", "Cd3d", "Cd3g", "Cd4", "Cd8a", "Foxp3"), ncol = 3)
+
+# Core Macrophage marker
+FeaturePlot(prostate_ST, features = c("Adgre1", "Cd68", "Csf1r", "Cd14", "Cd163"), ncol = 3)
+# FeaturePlot(prostate_ST, features = c("Nos2", "Il1b", "Tnf", "Mrc1", "Arg1", "Retnla"), ncol = 3)
+p_m1 <- FeaturePlot(
+  prostate_ST,
+  features = c("Nos2", "Il1b", "Tnf"),
+  ncol = 3,
+  cols = c("grey95", "firebrick"),
+  order = TRUE,
+  min.cutoff = "q5"
+)
+p_m2 <- FeaturePlot(
+  prostate_ST,
+  features = c("Mrc1", "Arg1", "Retnla"),
+  ncol = 3,
+  cols = c("grey95", "forestgreen"),
+  order = TRUE,
+  min.cutoff = "q5"
+)
+
+p_m1 / p_m2
+
+# NK Cells
+FeaturePlot(prostate_ST, features = c("Nkg7", "Klrb1c", "Prf1", "Gzma", "Gzmb", "Ifng"), ncol = 3)
+# Dendritic Cells
+FeaturePlot(prostate_ST, features = c("Itgax", "H2-Aa", "Zbtb46", "Flt3"), ncol = 2)
+# Neutrophils
+FeaturePlot(prostate_ST, features = c("S100a8", "S100a9", "Ly6g", "Mpo", "Elane"), ncol = 5)
+
+
+FeaturePlot(
+  prostate_ST,
+  features = c("Cd3e", "Cd3d", "Cd3g", "Cd4", "Cd8a", "Foxp3"),
+  ncol = 3,
+  min.cutoff = 1,  # or "q5"
+  order = TRUE,
+  cols = c("grey95", "blue")
+)
+
+FeaturePlot(
+  prostate_ST,
+  features = c("Cd3e", "Cd3d", "Cd3g", "Cd4", "Cd8a", "Foxp3"),
+  ncol = 3,
+  order = TRUE,
+  cols = c("lightgrey", "blue"),
+  min.cutoff = "q5"
+)
+
+FeaturePlot(prostate_ST, features = c("Nos2", "Il1b", "Tnf", "Mrc1", "Arg1", "Retnla"), ncol = 3)
+
+
+FeaturePlot(prostate_ST, features = c("Cd3e", "Cd3d", "Cd3g", "Cd4", "Cd8a", "Foxp3"), ncol = 3)
+
+
+
+FeaturePlot(
+  subset(prostate_ST, subset = level_1 == "Immune_Cells"),
+  features = c("Cd3e", "Cd3d", "Cd3g", "Cd4", "Cd8a", "Foxp3"),
+  ncol = 3,
+  order = TRUE,
+  cols = c("lightgrey", "blue"),
+  min.cutoff = "q5"
+)
