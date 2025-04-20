@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+
+
 # General image plotting functions
 def plot_mask_and_save_image(title, gdf, img, cmap, output_name=None, bbox=None):
     if bbox is not None:
@@ -131,6 +134,7 @@ def plot_clusters_and_save_image(title, gdf, img, adata, bbox=None, color_by_obs
 
 # Plotting function for nuclei area distribution
 def plot_nuclei_area(gdf,area_cut_off):
+    import matplotlib.pyplot as plt
     fig, axs = plt.subplots(1, 2, figsize=(15, 4))
     # Plot the histograms
     axs[0].hist(gdf['area'], bins=50, edgecolor='black')
