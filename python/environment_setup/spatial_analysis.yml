@@ -1,0 +1,40 @@
+ name: spatial_analysis
+ channels:
+   - conda-forge
+   - bioconda
+   - defaults
+ dependencies:
+   # core
+   - python=3.10
+   - pip
+   - git                                 # required so pip can clone from GitHub
+
+   # Python libs
+   - scanpy>=1.9
+   - anndata
+
+   
+   - numpy
+   - scipy
+   - pandas
+   - matplotlib
+   - scikit-learn
+   - rpy2
+
+   # R support for scran pooling
+   - r-base
+   - bioconductor-scran
+   - bioconductor-singlecellexperiment
+   - bioconductor-biocgenerics
+   - r-irlba
+
+   # Jupyter kernel
+   - ipykernel
+
+   # cutting‑edge & pip‑only packages
+   - pip:
+     - scvi-tools
+     - git+https://github.com/zhanglabtools/STAGATE.git#egg=STAGATE    # install STAGATE from GitHub :contentReference[oaicite:0]{index=0}
+     - git+https://github.com/jianhaizhang/spatialPCA.git#egg=spatialpca
+     - magic-impute
+     - git+https://github.com/username/graphst.git#egg=graphst
