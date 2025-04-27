@@ -28,33 +28,45 @@ from stardist.models import StarDist2D
 from csbdeep.utils import normalize
 from shapely.geometry import Polygon, Point
 from scipy import sparse
+from tensorflow.keras import backend as K
+import gc
 
 # ---------------------------------
 # Configuration
 # ---------------------------------
 SAMPLES = [
-    "BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07833_22WJCYLT3",
-    "BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07834_22WJCYLT3",
-    "BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07835_22WJCYLT3",
-    "BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07836_22WJCYLT3",
-    "BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07837_22WJCYLT3",
-    "BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07838_22WJCYLT3",
+    #"BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07833_22WJCYLT3",
+    #"BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07834_22WJCYLT3",
+    "BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07835_22WJCYLT3_swapped",
+    "BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07836_22WJCYLT3_swapped",
+    #"BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07837_22WJCYLT3",
+    # "BANOSSM_SSM0015_1_PR_Whole_C1_VISHD_F07838_22WJCYLT3",
 ]
 
+HNE_TIF_PATHS = {
+    "F07833": Path("/mnt/c/Users/jonan/Documents/1Work/RoseLab/Spatial/dietary_droject/data/images_for_alignments/111324-111424_Training_TMA2/hne/MycCAP_TMA2_Slide2.tif"),
+    "F07834": Path("/mnt/c/Users/jonan/Documents/1Work/RoseLab/Spatial/dietary_droject/data/images_for_alignments/111324-111424_Training_TMA2/hne/MycCAP_TMA2_Slide1.tif"),
+    "F07835": Path("/mnt/c/Users/jonan/Documents/1Work/RoseLab/Spatial/dietary_droject/data/images_for_alignments/120524-120624_MycCap_TMA1_1_TMA3_1/hne/MycCap_TMA1_slide1.tif"),
+    "F07836": Path("/mnt/c/Users/jonan/Documents/1Work/RoseLab/Spatial/dietary_droject/data/images_for_alignments/120524-120624_MycCap_TMA1_1_TMA3_1/hne/RL_MycCap_TMA3_slide1.tif"),
+    "F07837": Path("/mnt/c/Users/jonan/Documents/1Work/RoseLab/Spatial/dietary_droject/data/images_for_alignments/121124-121224_SKO_TMA1_1_n_TMA2_1/hne/12_11_2024_RL_SKOTMA1_Slide_1.tif"),
+    "F07838": Path("/mnt/c/Users/jonan/Documents/1Work/RoseLab/Spatial/dietary_droject/data/images_for_alignments/121124-121224_SKO_TMA1_1_n_TMA2_1/hne/12_11_2024_RL_SKOTMA2 Slide_1.tif"),
+}
+
+
 BASE_DIR = Path("/mnt/c/Users/jonan/Documents/1Work/RoseLab/Spatial/dietary_droject/data/Rose_Li_VisiumHD")
-SEGMENTATION_PATH = Path("/mnt/c/Users/jonan/Documents/1Work/RoseLab/Spatial/dietary_droject/data/cell_segmentation/SegmentedData")
+SEGMENTATION_PATH = Path("/mnt/c/Users/jonan/Documents/1Work/RoseLab/Spatial/dietary_droject/data/cell_segmentation")
 
 # StarDist parameters
-MIN_PERCENTILE = 0.5
-MAX_PERCENTILE = 99.9
-MODEL_SCALE = 7
+MIN_PERCENTILE = 5
+MAX_PERCENTILE = 95
+MODEL_SCALE = 2
 NMS_THRESHOLD = 0.1
-PROB_THRESHOLD = 0.3
-N_TILES = (20,20,1)
+PROB_THRESHOLD = 0.33
+N_TILES = (80,80,1)
 
 # QC thresholds
-AREA_CUTOFF = 500
-UMI_CUTOFF = 100
+AREA_CUTOFF = 60
+UMI_CUTOFF = 50
 UMI_SPATIAL_CUTOFF = 50
 
 # Logging setup
@@ -83,21 +95,28 @@ def load_spatial_data(sample: str):
 
     df_pos = pd.read_parquet(str(pq_file)).set_index("barcode")
     df_pos["index"] = df_pos.index
-    adata.obs = adata.obs.join(df_pos, how="left")
+    adata.obs =  pd.merge(adata.obs, df_pos, left_index=True, right_index=True)
 
-    geometries = [Point(xy) for xy in zip(df_pos["pxl_col_in_fullres"], df_pos["pxl_row_in_fullres"])]
+
+    geometries = [Point(xy) for xy in zip(df_pos["pxl_col_in_fullres"],
+                                          df_pos["pxl_row_in_fullres"])]
     gdf_coords = gpd.GeoDataFrame(df_pos, geometry=geometries)
     return adata, gdf_coords
+#CHECKED
 
 def segment_nuclei(sample: str):
-    # Load and normalize image
-    img_path = BASE_DIR / sample / "outs" / "spatial" / "tissue_hires_image.png"
-    logging.info(f'Loading image {img_path}')
-    img_np = np.array(Image.open(str(img_path)).convert("RGB"))
+    # Load full-resolution RGB H&E image from dictionary
+    sample_id = re.search(r'F\d{5}', sample).group(0)
+    img_path = HNE_TIF_PATHS[sample_id]
+    logging.info(f"Loading full-res image {img_path}")
+    img_np = tifffile.imread(str(img_path))  # full-res TIFF loaded as (H, W, 3)
+
+    # Normalize intensities
     img_norm = normalize(img_np, MIN_PERCENTILE, MAX_PERCENTILE, axis=(0,1,2))
 
+    # Run StarDist segmentation
     model = StarDist2D.from_pretrained("2D_versatile_he")
-    logging.info('Running StarDist segmentation')
+    logging.info("Running StarDist segmentation on full-res image")
     labels, polys = model.predict_instances(
         img_norm,
         scale=MODEL_SCALE,
@@ -106,7 +125,13 @@ def segment_nuclei(sample: str):
         prob_thresh=PROB_THRESHOLD,
         show_tile_progress=True
     )
+
+    # Clear TensorFlow session to free memory
+    K.clear_session()
+    gc.collect()
+
     return img_np, labels, polys
+
 
 def make_geodataframe(polys: dict, offset_id: int = 0):
     geometries = []
@@ -221,9 +246,13 @@ def save_outputs(sample: str, img_np, labels, polys, gdf, gf_adata):
 
 def process_sample(sample: str, offset_id: int):
     adata, gdf_coords = load_spatial_data(sample)
+    
     img_np, labels, polys = segment_nuclei(sample)
+    
     gdf, new_offset = make_geodataframe(polys, offset_id)
+    
     gf_adata = bin_and_sum(adata, gdf_coords, gdf)
+    
     save_outputs(sample, img_np, labels, polys, gdf, gf_adata)
     return new_offset
 
