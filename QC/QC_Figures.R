@@ -74,26 +74,31 @@ for (group_df in grouped_qc) {
   bp_fraction_under_100 <- ggplot(group_df, aes(x = label, y = fraction_under_100, fill = label)) +
     geom_bar(stat = "identity") +
     theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Fraction Under 100")
   
   bp_fraction_over_100 <- ggplot(group_df, aes(x = label, y = fraction_over_100, fill = label)) +
     geom_bar(stat = "identity") +
     theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Fraction Over 100")
   
   bp_mean_umi <- ggplot(group_df, aes(x = label, y = mean_umi, fill = label)) +
     geom_bar(stat = "identity") +
     theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Mean UMI")
   
   bp_median_umi <- ggplot(group_df, aes(x = label, y = median_umi, fill = label)) +
     geom_bar(stat = "identity") +
     theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Median UMI")
   
   bp_mean_percent_mt <- ggplot(group_df, aes(x = label, y = mean_percent_mt, fill = label)) +
     geom_bar(stat = "identity") +
     theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     ggtitle("Mean Percent MT")
   
   # Arrange the bar plots in a grid (here we use 3 columns; adjust layout as desired)
